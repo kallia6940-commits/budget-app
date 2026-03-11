@@ -3,7 +3,7 @@ name: Deploy to Supabase
 on:
   push:
     branches:
-      - main  # 내가 코드를 main에 올릴 때마다 실행해!
+      - main
 
 jobs:
   deploy:
