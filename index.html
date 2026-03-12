@@ -6,10 +6,8 @@
 <title>가계부</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.1/umd/lucide.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.8/dist/umd/supabase.min.js"></script>
-
 <style>
   *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   *::-webkit-scrollbar{display:none}
@@ -94,36 +92,7 @@
   }
 
   @media(min-width:600px){
-    #app{max-width:100%;flex-direction:row}
-    #sidebar{
-      display:flex;flex-direction:column;
-      width:220px;min-width:220px;
-      background:#fff;border-right:1px solid var(--gray100);
-      padding:24px 0;position:sticky;top:0;height:100vh;
-      overflow-y:auto;
-    }
-    #sidebar .sidebar-logo{
-      font-size:20px;font-weight:700;color:var(--gray900);
-      padding:0 24px 24px;border-bottom:1px solid var(--gray100);
-      margin-bottom:12px;
-    }
-    #sidebar .sidebar-btn{
-      display:flex;align-items:center;gap:12px;
-      padding:12px 24px;border:none;background:transparent;
-      cursor:pointer;color:var(--gray500);font-size:15px;
-      font-weight:500;width:100%;text-align:left;
-      transition:all .15s;border-radius:0;
-    }
-    #sidebar .sidebar-btn:hover{background:var(--gray50);color:var(--gray900)}
-    #sidebar .sidebar-btn.active{
-      color:var(--indigo600);background:var(--indigo50);
-      font-weight:700;
-    }
-    #main-content{flex:1;overflow-y:auto;min-height:100vh;max-width:none;width:100%;}
-    #main-content .content{max-width:none;width:100%;}
-    #main-content #header-slot > *{max-width:none;}
-    .bottom-nav{display:none!important}
-    .fab-wrap{left:auto;right:0;transform:none;max-width:none;width:calc(1024px - 220px);}
+    #app{max-width:800px}
   }
 
   /* Header */
@@ -206,7 +175,7 @@
     padding:10px 8px;display:flex;justify-content:space-around;
     align-items:center;z-index:30;
   }
-  @media(min-width:600px){.bottom-nav{display:none!important}}
+  @media(min-width:600px){.bottom-nav{max-width:800px}}
   .nav-btn{
     display:flex;flex-direction:column;align-items:center;gap:3px;
     border:none;background:transparent;cursor:pointer;
@@ -222,7 +191,7 @@
     position:fixed;bottom:90px;left:50%;transform:translateX(-50%);
     width:100%;max-width:480px;pointer-events:none;z-index:20;
   }
-  @media(min-width:600px){.fab-wrap{max-width:none;width:100%;}}
+  @media(min-width:600px){.fab-wrap{max-width:800px}}
   .fab-inner{
     position:absolute;right:20px;bottom:0;
     display:flex;flex-direction:column;align-items:flex-end;gap:10px;
@@ -782,40 +751,16 @@
 </style>
 </head>
 <body>
-
-<!-- 로그인 화면 -->
-<div id="loginScreen" style="display:none;position:fixed;inset:0;background:#111827;z-index:9999;flex-direction:column;align-items:center;justify-content:center;gap:24px">
-  <div style="text-align:center">
-    <div style="font-size:48px;margin-bottom:12px">💰</div>
-    <div style="font-size:22px;font-weight:700;color:#fff;margin-bottom:6px">가계부</div>
-    <div style="font-size:14px;color:#9CA3AF">로그인하고 내 가계부를 시작해요</div>
-  </div>
-  <button onclick="loginWithGoogle()" style="display:flex;align-items:center;gap:12px;padding:14px 28px;background:#fff;border:none;border-radius:16px;font-size:16px;font-weight:600;color:#111827;cursor:pointer;box-shadow:0 4px 20px rgba(0,0,0,0.3)">
-    <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.08 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-3.59-13.46-8.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
-    Google로 로그인
-  </button>
-</div>
-
-<!-- 앱 본체 -->
-<div id="appRoot" style="display:none">
 <div id="app">
-  <!-- 사이드바 (데스크탑) -->
-  <nav id="sidebar" style="display:none">
-    <div class="sidebar-logo">💰 가계부</div>
-  </nav>
+  <div id="header-slot"></div>
+  <div class="content" id="content"></div>
 
-  <!-- 메인 콘텐츠 -->
-  <div id="main-content">
-    <div id="header-slot"></div>
-    <div class="content" id="content"></div>
-
-    <div class="fab-wrap" id="fab-wrap" style="display:none">
-      <div class="fab-inner">
-        <div id="fab-menus" style="display:none;flex-direction:column;gap:10px;align-items:flex-end"></div>
-        <button class="fab-main" id="fab-btn" onclick="toggleFab()">
-          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        </button>
-      </div>
+  <div class="fab-wrap" id="fab-wrap" style="display:none">
+    <div class="fab-inner">
+      <div id="fab-menus" style="display:none;flex-direction:column;gap:10px;align-items:flex-end"></div>
+      <button class="fab-main" id="fab-btn" onclick="toggleFab()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      </button>
     </div>
   </div>
 
@@ -932,6 +877,15 @@ const todayStr = today.toISOString().split('T')[0];
 // ===== HELPERS =====
 function fmt(n){return Number(n).toLocaleString('ko-KR')}
 function getcat(id){return CATEGORIES.find(c=>c.id===id)}
+function isRefund(t){ 
+  return t.amount > 0 && getcat(t.category)?.type === 'expense';
+}
+function isExpenseTx(t){
+  return (t.amount < 0 && t.category !== 'transfer') || isRefund(t);
+}
+function isIncomeTx(t){
+  return t.amount > 0 && !isRefund(t);
+}
 function getacc(id){return ACCOUNTS.find(a=>a.id===id)}
 
 // monthStartDay 기준으로 해당 "달"의 시작일/종료일 문자열(YYYY-MM-DD) 반환
@@ -1078,8 +1032,8 @@ function getFilteredTx(){
 }
 
 function getTotals(txs){
-  const income = txs.filter(t=>t.amount>0).reduce((s,t)=>s+t.amount,0);
-  const expense = txs.filter(t=>t.amount<0&&t.category!=='transfer').reduce((s,t)=>s+Math.abs(t.amount),0);
+  const income = txs.filter(t=>isIncomeTx(t)).reduce((s,t)=>s+t.amount,0);
+  const expense = txs.filter(t=>isExpenseTx(t)).reduce((s,t)=>s+Math.abs(t.amount),0);
   return {income,expense};
 }
 
@@ -1116,9 +1070,9 @@ function renderTxIcon(catId, size=44, radius=16){
 function renderTxItem(t, showCheckbox=false){
   const c = getcat(t.category);
   const acc = getacc(t.accountId);
-  const isExp = t.amount<0 && t.category!=='transfer';
+  const isExp = isExpenseTx(t);
   const isTransfer = t.category==='transfer';
-  const amtCls = t.amount>0 ? 'income' : 'expense';
+  const amtCls = isIncomeTx(t) ? 'income' : 'expense';
   const isSelected = state.selectedIds.includes(t.id);
   
   let metaText = '';
@@ -1237,23 +1191,6 @@ function renderNav(){
       </div>
       <span>${tab.name}</span>
     </button>`).join('');
-
-  // 사이드바 렌더링 (데스크탑)
-  const sidebar = document.getElementById('sidebar');
-  const isDesktop = window.innerWidth >= 600;
-  sidebar.style.display = isDesktop ? 'flex' : 'none';
-  sidebar.innerHTML = `
-    <div class="sidebar-logo">💰 가계부</div>
-    ${tabs.map(tab=>`
-      <button class="sidebar-btn ${state.tab===tab.id?'active':''}" onclick="switchTab('${tab.id}')">
-        ${luIcon(tab.icon, 20)}
-        <span>${tab.name}</span>
-      </button>`).join('')}
-    ${currentUser ? `<div style="margin-top:auto;padding:16px 24px;border-top:1px solid var(--gray100);margin-top:20px">
-      <div style="font-size:12px;color:var(--gray400);margin-bottom:8px">${currentUser.email}</div>
-      <button onclick="logout()" style="font-size:13px;color:var(--red500);background:none;border:none;cursor:pointer;padding:0">로그아웃</button>
-    </div>` : ''}
-  `;
 }
 
 function renderFab(){
@@ -1315,8 +1252,8 @@ function renderHome(){
     const dd = new Date(calStartDate); dd.setDate(dd.getDate()+d);
     const ds=`${dd.getFullYear()}-${String(dd.getMonth()+1).padStart(2,'0')}-${String(dd.getDate()).padStart(2,'0')}`;
     const dayTxs = TRANSACTIONS.filter(t=>t.date===ds);
-    const hasInc = dayTxs.some(t=>t.amount>0);
-    const hasExp = dayTxs.some(t=>t.amount<0);
+    const hasInc = dayTxs.some(t=>isIncomeTx(t));
+    const hasExp = dayTxs.some(t=>isExpenseTx(t));
     const isToday = ds===todayStr;
     const isSel = state.selectedDate===ds;
     calHtml += `<button class="cal-day-btn" onclick="selectDay('${ds}')">
@@ -1479,8 +1416,8 @@ function renderLedger(){
   // type filter
   txs = txs.filter(t=>{
     if(state.filterType==='all') return true;
-    if(state.filterType==='income') return t.amount>0;
-    if(state.filterType==='expense') return t.amount<0&&t.category!=='transfer';
+    if(state.filterType==='income') return isIncomeTx(t);
+    if(state.filterType==='expense') return isExpenseTx(t);
     if(state.filterType==='transfer') return t.category==='transfer';
     return true;
   });
@@ -1516,8 +1453,8 @@ function renderLedger(){
     const d = new Date(date);
     const dayName=['일','월','화','수','목','금','토'][d.getDay()];
     const isToday = date===todayStr;
-    const dayExp = dTxs.filter(t=>t.amount<0&&t.category!=='transfer').reduce((s,t)=>s+t.amount,0);
-    const dayInc = dTxs.filter(t=>t.amount>0).reduce((s,t)=>s+t.amount,0);
+    const dayExp = dTxs.filter(t=>isExpenseTx(t)).reduce((s,t)=>s+t.amount,0);
+    const dayInc = dTxs.filter(t=>isIncomeTx(t)).reduce((s,t)=>s+t.amount,0);
     const memo = DAY_MEMOS[date];
     
     html += `<div class="day-group">
@@ -1571,8 +1508,8 @@ function renderStatistics(){
 function getMonthData(year, month){
   const {start, end} = getPeriodRange(year, month);
   const txs = TRANSACTIONS.filter(t=>t.date>=start&&t.date<=end);
-  const income = txs.filter(t=>t.amount>0).reduce((s,t)=>s+t.amount,0);
-  const expense = txs.filter(t=>t.amount<0&&t.category!=='transfer').reduce((s,t)=>s+Math.abs(t.amount),0);
+  const income = txs.filter(t=>isIncomeTx(t)).reduce((s,t)=>s+t.amount,0);
+  const expense = txs.filter(t=>isExpenseTx(t)).reduce((s,t)=>s+Math.abs(t.amount),0);
   const savings = txs.filter(t=>t.category==='saving').reduce((s,t)=>s+Math.abs(t.amount),0);
   const investment = txs.filter(t=>t.category==='investment').reduce((s,t)=>s+Math.abs(t.amount),0);
   const fixedTotal = txs.filter(t=>t.amount<0&&(t.tags||[]).some(tag=>tag.includes('고정비'))).reduce((s,t)=>s+Math.abs(t.amount),0);
@@ -1596,7 +1533,7 @@ function renderStatsMonthly(){
   const varPct = 100-fixPct;
   
   const catData = CATEGORIES.filter(c=>c.type==='expense'&&c.id!=='saving'&&c.id!=='investment')
-    .map(c=>({...c, total: cur.txs.filter(t=>t.category===c.id).reduce((s,t)=>s+Math.abs(t.amount),0)}))
+    .map(c=>({...c, total: cur.txs.filter(t=>t.category===c.id).reduce((s,t)=>s+(isRefund(t) ? -t.amount : Math.abs(t.amount)),0)}))
     .filter(c=>c.total>0).sort((a,b)=>b.total-a.total);
   
   const incShow = state.showIncome||!state.hideIncome;
@@ -1671,7 +1608,7 @@ function renderStatsMonthly(){
             ${isExp?`<div style="background:var(--gray50);border-radius:12px;margin-top:4px;overflow:hidden">
               ${catTxs.map(tx=>`<div class="cat-tx">
                 <div><div class="cat-tx-name">${tx.desc}</div><div class="cat-tx-date">${tx.date.slice(5).replace('-','/')}</div></div>
-                <div class="cat-tx-amt">${fmt(Math.abs(tx.amount))}원</div>
+                <div class="cat-tx-amt" style="color:${isRefund(tx)?'var(--emerald500)':'inherit'}">${isRefund(tx)?'-':''}${fmt(Math.abs(tx.amount))}원</div>
               </div>`).join('')}
             </div>`:''}
           </div>`;
@@ -1718,7 +1655,7 @@ function renderCharts(){
   if(state.statsSegment==='monthly'){
     const cur = getMonthData(state.year,state.month);
     const catData = CATEGORIES.filter(c=>c.type==='expense'&&c.id!=='saving'&&c.id!=='investment')
-      .map(c=>({...c,total:cur.txs.filter(t=>t.category===c.id).reduce((s,t)=>s+Math.abs(t.amount),0)}))
+      .map(c=>({...c,total:cur.txs.filter(t=>t.category===c.id).reduce((s,t)=>s+(isRefund(t) ? -t.amount : Math.abs(t.amount)),0)}))
       .filter(c=>c.total>0);
     
     const pieCtx = document.getElementById('catPieChart');
@@ -2183,9 +2120,7 @@ function renderSettings(){
       </div>
     </div>
 
-    <div class="version-footer">가계부 앱 v1.0.0 · Supabase 연동됨 ☁️</div>
-    ${currentUser ? `<div style="text-align:center;margin-bottom:8px;font-size:13px;color:var(--gray400)">${currentUser.email}</div>
-    <div style="padding:0 20px 24px"><button onclick="logout()" style="width:100%;padding:14px;background:#FEF2F2;color:var(--red500);border:none;border-radius:16px;font-size:15px;font-weight:600;cursor:pointer">로그아웃</button></div>` : ''}
+    <div class="version-footer">가계부 앱 v1.0.0 · Supabase 연동 예정</div>
   </div>`;
 }
 
@@ -2322,14 +2257,18 @@ function updateMonthBudget(el, ym){
 function getDaysInMonth(y,m){return new Date(y,m,0).getDate();}
 
 function exportCSV(){
-  const headers=['날짜','내용','금액','분류','카테고리','계좌','카드','메모','태그'];
-  const rows=TRANSACTIONS.map(t=>[
-    t.date,t.desc,t.amount,
-    t.amount>0?'수입':t.category==='transfer'?'이체':'지출',
+const headers=['날짜','내용','입금','출금','분류','카테고리','계좌','받는계좌','카드','메모','태그'];
+const rows=TRANSACTIONS.map(t=>[
+    t.date, t.desc,
+   isIncomeTx(t) ? t.amount : '',
+   isExpenseTx(t) ? Math.abs(t.amount) : '',
+   isIncomeTx(t)?'수입':t.category==='transfer'?'이체':'지출',
     getcat(t.category)?.name||t.category,
-    getacc(t.accountId)?.name||t.accountId,
-    t.isCard?'카드':'현금',
-    t.memo||'',(t.tags||[]).join('|')
+getacc(t.accountId)?.name||t.accountId,
+t.toAccountId ? getacc(t.toAccountId)?.name||'' : '',
+t.isCard?'카드':'현금',
+t.memo||'',
+(t.tags||[]).join('|')
   ]);
   const csv=[headers,...rows].map(r=>r.map(c=>`"${c}"`).join(',')).join('\n');
   const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
@@ -2379,13 +2318,17 @@ function parseAndImport(text){
   const idx = {
     date:      headers.findIndex(h => ['날짜','date'].includes(h.toLowerCase())),
     desc:      headers.findIndex(h => ['내용','desc','description','적요'].includes(h.toLowerCase())),
-    amount:    headers.findIndex(h => ['금액','amount'].includes(h.toLowerCase())),
+    amount:   headers.findIndex(h => ['금액','amount'].includes(h.toLowerCase())),
+    income:   headers.findIndex(h => ['입금','income'].includes(h.toLowerCase())),
+    expense:   headers.findIndex(h => ['출금','expense'].includes(h.toLowerCase())),
     category:  headers.findIndex(h => ['카테고리','category'].includes(h.toLowerCase())),
-    accountId: headers.findIndex(h => ['계좌','account'].includes(h.toLowerCase())),
+    toAccount:  headers.findIndex(h => ['받는계좌','toaccount'].includes(h.toLowerCase())),
+    accountId:  headers.findIndex(h => h === '계좌' || h.toLowerCase() === 'account'),
+    type:       headers.findIndex(h => ['분류','type'].includes(h.toLowerCase())),
     memo:      headers.findIndex(h => ['메모','memo','note'].includes(h.toLowerCase())),
     tags:      headers.findIndex(h => ['태그','tags'].includes(h.toLowerCase())),
   };
-  if(idx.date === -1 || idx.amount === -1){
+if(idx.date === -1 || (idx.amount === -1 && idx.income === -1 && idx.expense === -1)){
     showToast('날짜·금액 열을 찾을 수 없어요.\n내보내기로 만든 파일을 사용해주세요.');
     return;
   }
@@ -2404,8 +2347,15 @@ function parseAndImport(text){
     const get = i => i>=0 ? (cells[i]||'').replace(/"/g,'').trim() : '';
     const date    = get(idx.date);
     const desc    = get(idx.desc) || '가져온 거래';
-    const rawAmt  = get(idx.amount).replace(/,/g,'');
-    const amount  = parseInt(rawAmt, 10);
+// 입금/출금 칸이 있으면 그걸 쓰고, 없으면 기존 금액 칸 사용 (하위 호환)
+let amount;
+if(idx.income >= 0 || idx.expense >= 0) {
+    const inc = parseInt(get(idx.income).replace(/,/g,''), 10) || 0;
+    const exp = parseInt(get(idx.expense).replace(/,/g,''), 10) || 0;
+    amount = inc > 0 ? inc : -exp;   // 입금이면 양수, 출금이면 음수로 저장
+} else {
+    amount = parseInt(get(idx.amount).replace(/,/g,''), 10);
+}
     const catName = get(idx.category);
     const accName = get(idx.accountId);
     const memo    = get(idx.memo);
@@ -2414,12 +2364,16 @@ function parseAndImport(text){
     const key = `${date}_${amount}_${desc}`;
     if(existing.has(key)){ skipped++; return; }
     existing.add(key);
+    const typeName = get(idx.type);  // 분류 컬럼 읽기
+    const isTransfer = typeName === '이체' || catName === '이체';
     const cat   = CATEGORIES.find(c => c.name === catName);
-    const catId = cat?.id || (amount > 0 ? 'income' : 'etc');
+    const catId = isTransfer ? 'transfer' : cat?.id || (amount > 0 ? 'income' : 'etc');
     const acc   = ACCOUNTS.find(a => a.name === accName);
     const accId = acc?.id || ACCOUNTS[0]?.id || 'acc1';
-    TRANSACTIONS.push({ id: Date.now()+Math.random(), date, desc, amount, category: catId, accountId: accId, isCard: false, memo, tags });
-    added++;
+    const toAccName = get(idx.toAccount);
+    const toAcc     = ACCOUNTS.find(a => a.name === toAccName);
+    const toAccId   = toAcc?.id || undefined;
+    TRANSACTIONS.push({ id: Date.now()+Math.random(), date, desc, amount, category: catId, accountId: accId, toAccountId: toAccId, isCard: false, memo, tags });    added++;
   });
   TRANSACTIONS.sort((a,b) => b.date.localeCompare(a.date));
   renderContent();
@@ -4140,7 +4094,9 @@ function saveTransaction(keepOpen){
   const newTx={
     id:editingId||Date.now(),
     date:formData.date,time:formData.time,desc:formData.desc,
-    amount:(formData.type==='expense' || formData.type==='transfer') ? -Math.abs(amt) : Math.abs(amt),
+    amount: formData.type==='transfer' ? -Math.abs(amt)
+      : formData.type==='expense'  ? (amt < 0 ? Math.abs(amt) : -Math.abs(amt))
+      : Math.abs(amt),   // 음수 입력하면 양수로 저장 = 환급 효과
     category:formData.type==='transfer'?'transfer':formData.category,
     accountId:formData.accountId,
     toAccountId:formData.type==='transfer'?formData.toAccountId:undefined,
@@ -4150,16 +4106,13 @@ function saveTransaction(keepOpen){
   
   if(editingId){
     TRANSACTIONS=TRANSACTIONS.map(t=>t.id===editingId?newTx:t);
-    saveTransactionToSupabase(newTx);
     showToast('수정되었어요!');
   } else {
     TRANSACTIONS.unshift(newTx);
-    saveTransactionToSupabase(newTx);
     showToast('저장되었어요!');
   }
   
   removeModal('addModal');removeModal('addModalSheet');
-  keepOpen = true;
   
   if(keepOpen&&!editingId){
     formData={...formData,amount:'',desc:'',category:'',memo:'',tags:''};
@@ -4199,7 +4152,7 @@ function openDetailSheet(id){
     <div class="detail-grid">
       <div class="detail-cell">
         <div class="detail-cell-label">금액</div>
-        <div class="detail-cell-val" style="color:${t.amount<0?'var(--red500)':'var(--emerald500)'}">${fmt(t.amount)}원</div>
+        <div class="detail-cell-val" style="color:${!isIncomeTx(t)&&t.category!=='transfer'?'var(--red500)':'var(--emerald500)'}">${fmt(t.amount)}원</div>
       </div>
       <div class="detail-cell">
         <div class="detail-cell-label">날짜</div>
@@ -4238,8 +4191,8 @@ function editTx(id){
   removeModal('detailModal');
   openAddModal({
     id:t.id,
-    amount:String(Math.abs(t.amount)),
-    type:t.amount<0?(t.category==='transfer'?'transfer':'expense'):'income',
+    amount: String(isRefund(t) ? -t.amount : Math.abs(t.amount)),
+    type:isExpenseTx(t)?(t.category==='transfer'?'transfer':'expense'):'income',
     date:t.date,time:t.time||'',
     desc:t.desc,category:t.category,
     accountId:t.accountId,toAccountId:t.toAccountId||'acc2',
@@ -4258,7 +4211,6 @@ function deleteTx(id){
     localStorage.setItem('deletedFxKeys', JSON.stringify([...deletedFxKeys]));
   }
   TRANSACTIONS=TRANSACTIONS.filter(t=>t.id!==id);
-  deleteTransactionFromSupabase(id);
   removeModal('detailModal');
   render();
   showToast('삭제되었어요');
@@ -4472,126 +4424,9 @@ function autoGenerateFixedExpenses() {
   return added;
 }
 
-</script>
-<script>
-// ===== SUPABASE 설정 =====
-const SUPABASE_URL = 'https://ehthgmbvvauluhbcnpvn.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_fWyv-v72UQLV9LPhrQ4nng_-CSMr0mh';
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-  auth: {
-    detectSessionInUrl: true,
-    persistSession: true,
-    autoRefreshToken: true,
-  }
-});
-
-let currentUser = null;
-
-async function initAuth() {
-  // onAuthStateChange 먼저 등록
-  sb.auth.onAuthStateChange(async (event, session) => {
-    if (session) {
-      currentUser = session.user;
-      await loadTransactionsFromSupabase();
-      render();
-    } else {
-      currentUser = null;
-      TRANSACTIONS = [];
-      showLoginScreen();
-    }
-  });
-  // 현재 세션 확인
-  const { data: { session } } = await sb.auth.getSession();
-  if (!session) {
-    showLoginScreen();
-  }
-}
-
-function showLoginScreen() {
-  document.getElementById('loginScreen').style.display = 'flex';
-  document.getElementById('appRoot').style.display = 'none';
-}
-
-function hideLoginScreen() {
-  document.getElementById('loginScreen').style.display = 'none';
-  document.getElementById('appRoot').style.display = 'block';
-}
-
-async function loginWithGoogle() {
-  const { error } = await sb.auth.signInWithOAuth({
-    provider: 'google',
-    options: { redirectTo: window.location.href }
-  });
-  if (error) showToast('로그인 실패: ' + error.message);
-}
-
-async function logout() {
-  await sb.auth.signOut();
-  currentUser = null;
-  TRANSACTIONS = [];
-  showLoginScreen();
-  showToast('로그아웃 되었어요');
-}
-
-async function loadTransactionsFromSupabase() {
-  if (!currentUser) return;
-  const { data, error } = await sb
-    .from('transactions')
-    .select('*')
-    .eq('user_id', currentUser.id)
-    .order('date', { ascending: false });
-  if (error) { showToast('데이터 불러오기 실패'); return; }
-  TRANSACTIONS = (data || []).map(row => ({
-    id: row.id,
-    date: row.date,
-    desc: row.memo_desc || '',
-    amount: row.amount,
-    category: row.category || '',
-    accountId: row.account_id || 'acc1',
-    isCard: row.is_card || false,
-    memo: row.memo || '',
-    tags: row.tags ? JSON.parse(row.tags) : [],
-  }));
-  hideLoginScreen();
-}
-
-async function saveTransactionToSupabase(tx) {
-  if (!currentUser) return;
-  const row = {
-    id: tx.id,
-    user_id: currentUser.id,
-    date: tx.date,
-    memo_desc: tx.desc,
-    amount: tx.amount,
-    category: tx.category,
-    account_id: tx.accountId,
-    is_card: tx.isCard || false,
-    memo: tx.memo || '',
-    tags: JSON.stringify(tx.tags || []),
-    type: tx.amount < 0 ? 'expense' : 'income',
-  };
-  const { error } = await sb.from('transactions').upsert(row);
-  if (error) showToast('저장 실패: ' + error.message);
-}
-
-async function deleteTransactionFromSupabase(id) {
-  if (!currentUser) return;
-  const { error } = await sb
-    .from('transactions')
-    .delete()
-    .eq('id', id)
-    .eq('user_id', currentUser.id);
-  if (error) showToast('삭제 실패: ' + error.message);
-}
-
-
-
 // ===== INIT =====
 autoGenerateFixedExpenses();
-</script>
-</div><!-- /appRoot -->
-<script>
-window.addEventListener('DOMContentLoaded', function() { initAuth(); });
+render();
 </script>
 </body>
 </html>
