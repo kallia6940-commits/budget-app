@@ -4500,7 +4500,21 @@ function autoGenerateFixedExpenses() {
   }
   return added;
 }
+// ===== 자동 동기화 =====
+// 1. 앱 열 때 동기화
+checkUser().then(user => {
+  if (user) syncAllToSupabase();
+});
 
+// 2. 인터넷 연결될 때 동기화
+window.addEventListener('online', () => {
+  checkUser().then(user => {
+    if (user) {
+      showToast('인터넷 연결됨 — 동기화 중...');
+      syncAllToSupabase();
+    }
+  });
+});
 // ===== INIT =====
 autoGenerateFixedExpenses();
 render();
