@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.1/umd/lucide.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   *::-webkit-scrollbar{display:none}
@@ -770,6 +771,78 @@
 </div>
 
 <script>
+// 수퍼베이스 설정 (Project Settings > API에서 확인)
+const SUPABASE_URL = 'https://ehthgmbvvauluhbcnpvn.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_fWyv-v72UQLV9LPhrQ4nng_-CSMr0mh';
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let currentUser = null; // 로그인된 사용자 정보 저장
+// 구글 로그인
+async function signInWithGoogle() {
+  const { error } = await supabaseClient.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: window.location.href
+    }
+  });
+  if (error) showToast('로그인 오류: ' + error.message);
+}
+
+// 로그아웃
+async function signOut() {
+  await supabaseClient.auth.signOut();
+  currentUser = null;
+  showToast('로그아웃 되었습니다.');
+}
+
+// 로그인 상태 확인
+async function checkUser() {
+  const { data: { user } } = await supabaseClient.auth.getUser();
+  currentUser = user;
+  return user;
+}
+async function syncAllToSupabase() {
+  // 1. 로그인 체크
+const { data: { user } } = await supabaseClient.auth.getUser();
+  if (!user) {
+    showToast('로그인이 필요합니다.');
+    return;
+  }
+
+  if (TRANSACTIONS.length === 0) {
+    showToast('동기화할 데이터가 없습니다.');
+    return;
+  }
+
+  if (!confirm(`현재 ${TRANSACTIONS.length}건의 데이터를 수퍼베이스로 업로드할까요?`)) return;
+
+  // 2. 데이터 매핑 (앱 변수명 -> DB 컬럼명)
+  const uploadData = TRANSACTIONS.map(t => ({
+    user_id: user.id,          // 중요: 로그인한 사용자의 ID
+    date: t.date,
+    time: t.time || '00:00',
+    description: t.desc,       // 앱에서는 desc, DB에서는 description
+    amount: t.amount,
+    category: t.category,
+    account_id: t.accountId,
+    to_account_id: t.toAccountId || null,
+    is_card: t.isCard || false,
+    memo: t.memo || '',
+    tags: t.tags || []
+  }));
+
+  // 3. 수퍼베이스에 삽입
+const { data, error } = await supabaseClient
+    .from('transactions')
+    .insert(uploadData);
+
+  if (error) {
+    console.error('동기화 에러:', error);
+    showToast('동기화 중 오류가 발생했습니다.');
+  } else {
+    showToast(`${TRANSACTIONS.length}건 동기화 완료!`);
+  }
+}
 // ===== DATA =====
 let CATEGORIES = [
   {id:'food',name:'식비',icon:'utensils',color:'#FF6B6B',type:'expense'},
