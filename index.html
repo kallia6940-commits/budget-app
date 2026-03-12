@@ -4,8 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>가계부</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.1/umd/lucide.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
@@ -35,39 +34,39 @@
     --red400:#F87171;
     --red500:#EF4444;
     --amber500:#F59E0B;
-    --font:'Noto Sans KR',sans-serif;
+    --font:'Pretendard',sans-serif;
 
     /* ── Font Scale (Mobile-first) ── */
     /* Display: 메인 금액 (총자산, 당월지출 합계) */
-    --fs-display:28px;  --fw-display:900;
+    --fs-display:30px;  --fw-display:900;
     /* Heading 1: 헤더 타이틀, 바텀시트 제목 */
-    --fs-h1:20px;       --fw-h1:700;
+    --fs-h1:22px;       --fw-h1:700;
     /* Heading 2: 카드 소제목, 날짜 구분 */
-    --fs-h2:17px;       --fw-h2:700;
+    --fs-h2:19px;       --fw-h2:700;
     /* Body Main: 리스트 항목 명칭 */
-    --fs-body:15px;     --fw-body:400;
+    --fs-body:17px;     --fw-body:400;
     /* Body Sub: 계좌명, 메모, 보조설명 */
-    --fs-sub:13px;      --fw-sub:400;
+    --fs-sub:15px;      --fw-sub:400;
     /* Amount: 내역 리스트 금액 */
-    --fs-amt:15px;      --fw-amt:500;
+    --fs-amt:17px;      --fw-amt:500;
     /* Caption: 태그, 날짜, 보조정보 */
-    --fs-caption:12px;  --fw-caption:500;
+    --fs-caption:14px;  --fw-caption:500;
     /* Micro: 탭바 레이블, 작은 뱃지 */
-    --fs-micro:10px;    --fw-micro:500;
+    --fs-micro:12px;    --fw-micro:500;
 
     /* ── Web overrides (min-width:600px) ── */
   }
 
   @media(min-width:600px){
     :root{
-      --fs-display:32px;
-      --fs-h1:24px;
-      --fs-h2:18px;
-      --fs-body:16px;
-      --fs-sub:14px;
-      --fs-amt:16px;
-      --fs-caption:14px;
-      --fs-micro:12px;
+      --fs-display:34px;
+      --fs-h1:26px;
+      --fs-h2:20px;
+      --fs-body:18px;
+      --fs-sub:15px;
+      --fs-amt:18px;
+      --fs-caption:15px;
+      --fs-micro:13px;
     }
   }
 
@@ -104,7 +103,7 @@
     border-bottom:1px solid var(--gray100);
   }
   .header-top{
-    padding:16px 20px 8px;
+    padding:18px 22px 10px;
     display:flex;
     align-items:center;
     justify-content:space-between;
@@ -133,7 +132,7 @@
   .btn-this-month.period-mode{background:#FEE2E2;color:#EF4444}
 
   /* Ledger header extras */
-  .ledger-header{padding:0 20px 12px;display:flex;flex-direction:column;gap:10px}
+  .ledger-header{padding:0 22px 14px;display:flex;flex-direction:column;gap:12px}
   .search-row{display:flex;gap:8px;align-items:center}
   .search-wrap{position:relative;flex:1}
   .search-wrap input{
@@ -172,7 +171,7 @@
     position:fixed;bottom:0;left:50%;transform:translateX(-50%);
     width:100%;max-width:480px;
     background:#fff;border-top:1px solid var(--gray100);
-    padding:10px 8px;display:flex;justify-content:space-around;
+    padding:12px 8px;display:flex;justify-content:space-around;
     align-items:center;z-index:30;
   }
   @media(min-width:600px){.bottom-nav{max-width:800px}}
@@ -219,10 +218,10 @@
   @keyframes slideUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 
   /* Cards / Sections */
-  .section{padding:12px 20px;display:flex;flex-direction:column;gap:20px}
+  .section{padding:14px 22px;display:flex;flex-direction:column;gap:22px}
   .card{
     background:#fff;border:1px solid var(--gray100);
-    border-radius:24px;padding:20px;
+    border-radius:24px;padding:22px;
     box-shadow:0 2px 8px rgba(0,0,0,.03);
   }
   .card-title{
@@ -273,10 +272,10 @@
   .dot{width:4px;height:4px;border-radius:50%}
 
   /* Transaction List */
-  .day-group{padding:20px 20px 0}
+  .day-group{padding:22px 22px 8px}
   .day-header{
     display:flex;align-items:flex-end;justify-content:space-between;
-    margin-bottom:16px;
+    margin-bottom:10px;
   }
   .day-num{font-size:var(--fs-h1);font-weight:var(--fw-display);color:var(--gray800)}
   .day-num.today{color:var(--indigo600)}
@@ -284,23 +283,23 @@
   .day-today-label{font-size:var(--fs-micro);font-weight:var(--fw-display);color:var(--indigo500);text-transform:uppercase;letter-spacing:-.02em}
   .day-name{font-size:var(--fs-caption);font-weight:var(--fw-h1);color:var(--gray400)}
   .day-totals{display:flex;gap:8px;align-items:center;font-size:var(--fs-sub);font-weight:var(--fw-h1)}
-  .divider{height:1px;background:var(--gray50);margin:20px 20px 0}
+  .divider{height:1px;background:var(--gray50);margin:22px 22px 0}
 
   /* Transaction item */
   .tx-item{
     display:flex;align-items:center;justify-content:space-between;
-    padding:4px;margin:-4px;border-radius:12px;
+    padding:10px 6px;margin:0 -6px;border-radius:12px;
     cursor:pointer;transition:background .1s;
   }
   .tx-item:hover{background:rgba(0,0,0,.02)}
   .tx-item.selected{background:var(--indigo50)}
-  .tx-left{display:flex;align-items:center;gap:14px}
+  .tx-left{display:flex;align-items:center;gap:16px}
   .tx-icon{
-    width:44px;height:44px;border-radius:16px;
+    width:48px;height:48px;border-radius:16px;
     display:flex;align-items:center;justify-content:center;
     flex-shrink:0;
   }
-  .tx-info{display:flex;flex-direction:column;gap:3px}
+  .tx-info{display:flex;flex-direction:column;gap:4px}
   .tx-name{font-size:var(--fs-sub);font-weight:var(--fw-h1);color:var(--gray800);display:flex;align-items:center;gap:6px}
   .tx-card-badge{font-size:var(--fs-micro);font-weight:700;color:var(--indigo400);background:var(--indigo50);padding:1px 5px;border-radius:4px}
   .tx-meta{font-size:var(--fs-caption);color:var(--gray400);font-weight:var(--fw-caption)}
@@ -316,7 +315,7 @@
   .tx-won{font-size:var(--fs-caption);font-weight:var(--fw-h1)}
   .tx-won.expense{color:var(--gray400)}
   .tx-won.income{color:var(--emerald400)}
-  .tx-list{display:flex;flex-direction:column;gap:20px}
+  .tx-list{display:flex;flex-direction:column;gap:4px}
 
   /* Day memo */
   .day-memo-row{
@@ -337,7 +336,7 @@
     position:fixed;bottom:0;left:50%;transform:translateX(-50%);
     width:100%;max-width:480px;
     background:#fff;border-radius:32px 32px 0 0;
-    z-index:50;padding:24px 24px 40px;
+    z-index:50;padding:26px 26px 44px;
     max-height:92vh;overflow-y:auto;
     animation:slideUp2 .3s cubic-bezier(.32,.72,0,1);
   }
@@ -361,26 +360,26 @@
   .btn-close{font-size:var(--fs-sub);font-weight:var(--fw-h1);color:var(--gray400);background:none;border:none;cursor:pointer}
 
   /* Form elements */
-  .form-group{display:flex;flex-direction:column;gap:8px}
+  .form-group{display:flex;flex-direction:column;gap:10px}
   .form-label{font-size:var(--fs-micro);font-weight:700;color:var(--gray400);text-transform:uppercase;letter-spacing:.06em}
   .form-input{
     width:100%;background:var(--gray50);border:none;
-    border-radius:16px;padding:12px 16px;
+    border-radius:16px;padding:14px 18px;
     font-size:var(--fs-sub);font-weight:var(--fw-h1);font-family:var(--font);
     outline:none;transition:box-shadow .15s;
     -webkit-appearance:none;appearance:none;
   }
   .form-input:focus{box-shadow:0 0 0 2px var(--indigo100)}
-  .form-input.amount{font-size:var(--fs-h1);color:var(--indigo600);padding-right:40px}
+  .form-input.amount{font-size:var(--fs-h1);color:var(--indigo600);padding-right:44px}
   .amount-wrap{position:relative}
   .amount-won{
-    position:absolute;right:16px;top:50%;
+    position:absolute;right:18px;top:50%;
     transform:translateY(-50%);
     font-size:var(--fs-body);font-weight:var(--fw-h1);color:var(--gray300);
   }
   .form-select{
     width:100%;background:var(--gray50);border:none;
-    border-radius:16px;padding:12px 16px;
+    border-radius:16px;padding:14px 18px;
     font-size:var(--fs-sub);font-weight:var(--fw-h1);font-family:var(--font);
     outline:none;-webkit-appearance:none;appearance:none;
     cursor:pointer;
@@ -388,7 +387,7 @@
   .form-select:focus{box-shadow:0 0 0 2px var(--indigo100)}
   .form-textarea{
     width:100%;background:var(--gray50);border:none;
-    border-radius:16px;padding:12px 16px;
+    border-radius:16px;padding:14px 18px;
     font-size:var(--fs-sub);font-weight:var(--fw-h1);font-family:var(--font);
     outline:none;resize:none;
   }
@@ -397,7 +396,7 @@
   /* Type pills */
   .type-pills{display:flex;gap:8px}
   .type-pill{
-    flex:1;padding:12px;border-radius:16px;
+    flex:1;padding:14px;border-radius:16px;
     font-size:var(--fs-sub);font-weight:var(--fw-h1);border:none;
     cursor:pointer;background:var(--gray50);
     color:var(--gray400);transition:all .15s;
@@ -464,7 +463,7 @@
 
   /* Buttons */
   .btn-primary{
-    width:100%;padding:16px;background:var(--indigo600);color:#fff;
+    width:100%;padding:18px;background:var(--indigo600);color:#fff;
     border:none;border-radius:16px;font-size:var(--fs-body);font-weight:var(--fw-h1);
     cursor:pointer;font-family:var(--font);
     box-shadow:0 8px 20px rgba(79,70,229,.2);
@@ -473,7 +472,7 @@
   .btn-primary:active{transform:scale(.98)}
   .btn-primary:disabled{background:var(--gray100);color:var(--gray300);box-shadow:none}
   .btn-secondary{
-    width:100%;padding:16px;background:var(--gray100);color:var(--gray600);
+    width:100%;padding:18px;background:var(--gray100);color:var(--gray600);
     border:none;border-radius:16px;font-size:var(--fs-body);font-weight:var(--fw-h1);
     cursor:pointer;font-family:var(--font);transition:background .15s;
   }
@@ -510,7 +509,7 @@
   .settings-card[onclick]:active{background:var(--gray100)}
   .settings-row{
     display:flex;align-items:center;justify-content:space-between;
-    padding:18px 20px;border-bottom:1px solid var(--gray50);
+    padding:20px 22px;border-bottom:1px solid var(--gray50);
   }
   .settings-row:last-child{border-bottom:none}
   .settings-row-left{display:flex;align-items:center;gap:14px}
@@ -603,10 +602,13 @@
   /* Recent tx in home */
   .home-tx-item{
     display:flex;align-items:center;justify-content:space-between;
+    padding:10px 0;border-bottom:1px solid var(--gray50);
   }
-  .home-tx-left{display:flex;align-items:center;gap:12px}
+  .home-tx-item:last-child{border-bottom:none;padding-bottom:0}
+  .home-tx-item:first-child{padding-top:0}
+  .home-tx-left{display:flex;align-items:center;gap:14px}
   .home-icon{
-    width:40px;height:40px;border-radius:50%;
+    width:44px;height:44px;border-radius:50%;
     display:flex;align-items:center;justify-content:center;
     flex-shrink:0;
   }
@@ -1320,7 +1322,7 @@ function renderHome(){
           <span class="card-title" style="margin:0">최근 내역</span>
           <button class="more-btn" onclick="switchTab('ledger')">전체보기</button>
         </div>
-        <div style="display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;flex-direction:column;gap:0">
           ${recentTxs.map(t=>renderHomeTxItem(t)).join('')}
           ${recentTxs.length===0?'<p style="text-align:center;padding:16px;font-size:var(--fs-caption);color:var(--gray300)">내역이 없습니다</p>':''}
         </div>
@@ -1578,7 +1580,7 @@ function renderStatsMonthly(){
     </div>
     
     <div class="card">
-      <span class="card-title">고정비 vs 변동비</span>
+      <span class="card-title" style="display: block; margin-bottom: 14px;">고정비 vs 변동비</span>
       <div style="height:8px;background:var(--gray100);border-radius:4px;overflow:hidden;display:flex;margin-bottom:12px">
         <div style="height:100%;background:var(--indigo600);width:${fixPct}%;transition:width .5s"></div>
         <div style="height:100%;background:#C3B1E1;width:${varPct}%"></div>
@@ -1790,7 +1792,7 @@ function renderCurrentAssets(){
     </div>
     
     <div class="card">
-      <span class="card-title">입출금</span>
+      <span class="card-title" style="display: block; margin-bottom: 14px;">입출금</span>
       <div style="display:flex;flex-direction:column;gap:14px;margin-bottom:${envCards.length>0?'20px':'0'}">
         ${checking.map(a=>`<div style="display:flex;justify-content:space-between;align-items:center">
           <div style="display:flex;align-items:center;gap:10px"><div style="width:8px;height:8px;border-radius:50%;background:${a.color}"></div><span style="font-size:var(--fs-sub);font-weight:var(--fw-h1);color:var(--gray700)">${a.name}</span></div>
@@ -1810,7 +1812,7 @@ function renderCurrentAssets(){
     </div>
     
     <div class="card">
-      <span class="card-title">예·적금</span>
+      <span class="card-title" style="display: block; margin-bottom: 14px;">예·적금</span>
       <div style="display:flex;flex-direction:column;gap:20px">
         ${saving.map(a=>{
           const dd=getDday(a.maturity);
@@ -1827,7 +1829,7 @@ function renderCurrentAssets(){
     </div>
     
     <div class="card">
-      <span class="card-title">투자</span>
+      <span class="card-title" style="display: block; margin-bottom: 14px;">투자</span>
       <div style="display:flex;flex-direction:column;gap:14px">
         ${investment.map(a=>`<div style="display:flex;justify-content:space-between;align-items:center">
           <div style="display:flex;align-items:center;gap:10px"><div style="width:8px;height:8px;border-radius:50%;background:${a.color}"></div><span style="font-size:var(--fs-sub);font-weight:var(--fw-h1);color:var(--gray700)">${a.name}</span></div>
@@ -1837,7 +1839,7 @@ function renderCurrentAssets(){
     </div>
     
 <div class="card">
-      <span class="card-title">카드 & 할부</span>
+      <span class="card-title" style="display: block; margin-bottom: 14px;">카드 & 할부</span>
       <div style="display:flex;flex-direction:column;gap:28px">
         ${CARDS.map(card=>{
           const installs=INSTALLMENTS.filter(i=>i.cardId===card.id);
@@ -1850,9 +1852,9 @@ function renderCurrentAssets(){
               <div style="font-size:var(--fs-micro);font-weight:700;color:#D97706;margin-bottom:4px">이번달 결제 예정</div>
               <div style="font-size:var(--fs-h2);font-weight:var(--fw-display);color:#F59E0B">${fmt(totalDue)}원</div>
             </div>
-            ${installs.length>0?installs.map(inst=>{const pct=Math.round((inst.paidMonths/inst.totalMonths)*100);return`<div style="margin-top:12px">
-              <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:var(--fs-caption);font-weight:var(--fw-h1)">${inst.name}</span><span style="font-size:var(--fs-micro);color:var(--gray400)">월 ${fmt(inst.monthlyAmount)}원</span></div>
-              <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="font-size:var(--fs-micro);font-weight:var(--fw-h1);color:var(--gray400)">${inst.paidMonths}/${inst.totalMonths}개월 완료</span><span style="font-size:var(--fs-micro);font-weight:700;color:var(--gray400)">${pct}%</span></div>
+            ${installs.length>0?installs.map(inst=>{const pct=Math.round((inst.paidMonths/inst.totalMonths)*100);return`<div style="margin-top:20px;padding-top:20px;border-top:1px solid var(--gray50)">
+              <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="font-size:var(--fs-caption);font-weight:var(--fw-h1)">${inst.name}</span><span style="font-size:var(--fs-micro);color:var(--gray400)">월 ${fmt(inst.monthlyAmount)}원</span></div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:8px"><span style="font-size:var(--fs-micro);font-weight:var(--fw-h1);color:var(--gray400)">${inst.paidMonths}/${inst.totalMonths}개월 완료</span><span style="font-size:var(--fs-micro);font-weight:700;color:var(--gray400)">${pct}%</span></div>
               <div class="prog-bar"><div class="prog-fill" style="width:${pct}%;background:var(--indigo500)"></div></div>
             </div>`;}).join(''):'<p style="font-size:var(--fs-micro);font-weight:700;color:var(--gray300);text-align:center">할부 없음</p>'}
           </div>`;
@@ -2257,9 +2259,9 @@ function updateMonthBudget(el, ym){
 function getDaysInMonth(y,m){return new Date(y,m,0).getDate();}
 
 function exportCSV(){
-const headers=['날짜','내용','입금','출금','분류','카테고리','계좌','받는계좌','카드','메모','태그'];
+const headers=['날짜','시간','내용','입금','출금','분류','카테고리','계좌','받는계좌','카드','메모','태그'];
 const rows=TRANSACTIONS.map(t=>[
-    t.date, t.desc,
+    t.date, t.time || '', t.desc,
    isIncomeTx(t) ? t.amount : '',
    isExpenseTx(t) ? Math.abs(t.amount) : '',
    isIncomeTx(t)?'수입':t.category==='transfer'?'이체':'지출',
@@ -2317,6 +2319,7 @@ function parseAndImport(text){
   const headers = lines[0].split(',').map(h => h.replace(/"/g,'').trim());
   const idx = {
     date:      headers.findIndex(h => ['날짜','date'].includes(h.toLowerCase())),
+    time:      headers.findIndex(h => ['시간','time'].includes(h.toLowerCase())),
     desc:      headers.findIndex(h => ['내용','desc','description','적요'].includes(h.toLowerCase())),
     amount:   headers.findIndex(h => ['금액','amount'].includes(h.toLowerCase())),
     income:   headers.findIndex(h => ['입금','income'].includes(h.toLowerCase())),
@@ -2346,6 +2349,7 @@ if(idx.date === -1 || (idx.amount === -1 && idx.income === -1 && idx.expense ===
     cells.push(cur.trim());
     const get = i => i>=0 ? (cells[i]||'').replace(/"/g,'').trim() : '';
     const date    = get(idx.date);
+    const time    = get(idx.time);
     const desc    = get(idx.desc) || '가져온 거래';
 // 입금/출금 칸이 있으면 그걸 쓰고, 없으면 기존 금액 칸 사용 (하위 호환)
 let amount;
@@ -2373,7 +2377,7 @@ if(idx.income >= 0 || idx.expense >= 0) {
     const toAccName = get(idx.toAccount);
     const toAcc     = ACCOUNTS.find(a => a.name === toAccName);
     const toAccId   = toAcc?.id || undefined;
-    TRANSACTIONS.push({ id: Date.now()+Math.random(), date, desc, amount, category: catId, accountId: accId, toAccountId: toAccId, isCard: false, memo, tags });    added++;
+    TRANSACTIONS.push({ id: Date.now()+Math.random(), date, time: time || '00:00', desc, amount, category: catId, accountId: accId, toAccountId: toAccId, isCard: false, memo, tags });    added++;
   });
   TRANSACTIONS.sort((a,b) => b.date.localeCompare(a.date));
   renderContent();
