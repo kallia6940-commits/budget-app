@@ -817,8 +817,9 @@ const { data: { user } } = await supabaseClient.auth.getUser();
   if (!confirm(`현재 ${TRANSACTIONS.length}건의 데이터를 수퍼베이스로 업로드할까요?`)) return;
 
   // 2. 데이터 매핑 (앱 변수명 -> DB 컬럼명)
-  const uploadData = TRANSACTIONS.map(t => ({
-    user_id: user.id,          // 중요: 로그인한 사용자의 ID
+const uploadData = TRANSACTIONS.map(t => ({
+    id: t.id,
+    user_id: user.id,   //중요, 로그인 사용자의 id
     date: t.date,
     time: t.time || '00:00',
     description: t.desc,       // 앱에서는 desc, DB에서는 description
@@ -834,7 +835,7 @@ const { data: { user } } = await supabaseClient.auth.getUser();
   // 3. 수퍼베이스에 삽입
 const { data, error } = await supabaseClient
     .from('transactions')
-    .insert(uploadData);
+    .upsert(uploadData, { onConflict: 'id' });
 
   if (error) {
     console.error('동기화 에러:', error);
