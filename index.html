@@ -162,7 +162,7 @@
     background:var(--gray100);color:var(--gray400);
   }
   .pill.active{background:var(--indigo600);color:#fff;box-shadow:0 4px 8px rgba(79,70,229,.2)}
-  .filter-sum{font-size:var(--fs-micro);font-weight:var(--fw-micro);color:var(--gray400);display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+  .filter-sum{font-size:var(--fs-micro);font-weight:var(--fw-micro);color:var(--gray400)}
 
   /* Content area */
   .content{flex:1;overflow-y:auto;padding-bottom:80px}
@@ -893,6 +893,8 @@ const INITIAL_FIXED_EXPENSES = [
   {id:'fx3',name:'유튜브 프리미엄',amount:14900,day:8,category:'culture',accountId:'acc1'},
   {id:'fx4',name:'헬스장',amount:55000,day:1,category:'health',accountId:'acc3'},
 ];
+const INITIAL_FIXED_TRANSFERS = [];
+let FIXED_TRANSFERS = [...INITIAL_FIXED_TRANSFERS];
 
 let TRANSACTIONS = [
   {id:1,date:'2026-03-09',desc:'마트',amount:-43500,category:'shopping',accountId:'acc1',isCard:true,memo:'주간 장보기',tags:['#생활비']},
@@ -1226,7 +1228,7 @@ function renderHeader(){
     const sumHtml = state.filterType==='transfer'
       ? ''
       : state.filterType==='all'
-        ? `<span style="color:var(--red400)">-${fmt(expense)}</span>`
+        ? `<span style="color:var(--emerald500)">+${fmt(income)}</span> <span style="color:var(--red400)">-${fmt(expense)}</span>`
         : state.filterType==='income' ? `+${fmt(income)}원` : `-${fmt(expense)}원`;
     
     ledgerExtras = `<div class="ledger-header">
@@ -1854,7 +1856,7 @@ function renderCurrentAssets(){
           ].map(item=>`
             <div style="display:flex;align-items:center;gap:8px">
               <div style="width:8px;height:8px;border-radius:2px;background:${item.color};flex-shrink:0"></div>
-              <span style="font-size:var(--fs-caption);font-weight:var(--fw-amt);color:var(--gray500);width:36px">${item.label}</span>
+              <span style="font-size:var(--fs-caption);font-weight:var(--fw-amt);color:var(--gray500);width:44px">${item.label}</span>
               <span style="font-size:var(--fs-caption);font-weight:var(--fw-display);color:var(--gray800);width:28px;text-align:right">${item.pct}%</span>
             </div>`).join('')}
         </div>
@@ -1938,13 +1940,84 @@ function renderCurrentAssets(){
 
 function render6MonthAssets(){
   const bal = accountBalances();
-  const totNow = ACCOUNTS.reduce((s,a)=>s+(bal[a.id]||0),0);
+  const now = new Date(todayStr);
+
+  // 6개월치 자산 총액 계산 (데이터 없는 달 제외)
+  const monthlyTotals = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const yyyy = d.getFullYear();
+    const mm   = String(d.getMonth() + 1).padStart(2, '0');
+    const ym   = `${yyyy}-${mm}`;
+    const label = `${d.getMonth() + 1}월`;
+    // 해당 월에 거래가 하나라도 있는지 확인
+    const hasTx = TRANSACTIONS.some(t => t.date.startsWith(ym));
+    if (!hasTx && i !== 0) continue; // 이번 달(i=0)은 항상 포함
+    // 해당 월 말 기준 누적 잔액
+    const txUpToMonth = TRANSACTIONS.filter(t => t.date <= `${ym}-31`);
+    const monthBal = ACCOUNTS.reduce((sum, a) => {
+      const base = a.balance || 0;
+      const txSum = txUpToMonth
+        .filter(t => t.accountId === a.id)
+        .reduce((s, t) => s + t.amount, 0);
+      // 현재 잔액 기준으로 역산
+      return sum;
+    }, 0);
+    monthlyTotals.push({ label, ym, value: null });
+  }
+
+  // 실제 이번달 총자산 기준으로 월별 역산
+  const totNow = ACCOUNTS.reduce((s, a) => s + (bal[a.id] || 0), 0);
+  const realData = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const yyyy = d.getFullYear();
+    const mm   = String(d.getMonth() + 1).padStart(2, '0');
+    const ym   = `${yyyy}-${mm}`;
+    const label = `${d.getMonth() + 1}월`;
+    const hasTx = TRANSACTIONS.some(t => t.date.startsWith(ym));
+    if (!hasTx && i !== 0) continue;
+    // 이번 달 이후 발생한 거래들의 합으로 역산
+    const futureSum = TRANSACTIONS
+      .filter(t => t.date > `${ym}-31` && t.date <= todayStr)
+      .reduce((s, t) => s + t.amount, 0);
+    const val = i === 0 ? totNow : totNow - futureSum;
+    realData.push({ label, val });
+  }
+
+  // 분석 멘트 생성
+  let analysisText = '';
+  if (realData.length >= 2) {
+    const first = realData[0].val;
+    const last  = realData[realData.length - 1].val; // 이번 달
+    const diff  = last - first;
+    const avgMonthly = Math.round(diff / (realData.length - 1));
+    const pct = first !== 0 ? Math.round((diff / Math.abs(first)) * 100) : 0;
+
+    // 최근 2달 연속 감소 감지
+    const recentDown = realData.length >= 3 &&
+      realData[realData.length-1].val < realData[realData.length-2].val &&
+      realData[realData.length-2].val < realData[realData.length-3].val;
+
+    if (recentDown) {
+      analysisText = `최근 2달 연속 자산이 줄고 있어요 ⚠️<br>지출 패턴을 점검해보는 건 어떨까요?`;
+    } else if (diff > 0) {
+      analysisText = `${realData.length}개월간 자산이 꾸준히 늘고 있어요! 🚀<br>매월 평균 약 ${fmt(Math.abs(avgMonthly))}원씩 증가 · 총 ${pct > 0 ? '+' : ''}${pct}% 상승했어요.`;
+    } else if (diff < 0) {
+      analysisText = `${realData.length}개월간 자산이 감소했어요 📉<br>매월 평균 약 ${fmt(Math.abs(avgMonthly))}원씩 감소 · 총 ${pct}% 변화했어요.`;
+    } else {
+      analysisText = `자산이 보합세를 유지하고 있어요 📊<br>수입과 지출이 비슷하게 균형을 이루고 있어요.`;
+    }
+  } else {
+    analysisText = `거래 데이터가 쌓이면 분석 결과를 보여드려요 📊`;
+  }
+
   return `<div class="card">
     <span class="card-title">6개월 자산 변화</span>
     <div class="chart-wrap" style="height:220px"><canvas id="assetLineChart"></canvas></div>
     <div style="background:var(--indigo50);border-radius:16px;padding:14px;margin-top:16px">
       <div style="font-size:var(--fs-micro);font-weight:700;color:var(--indigo400);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">분석 결과</div>
-      <div style="font-size:var(--fs-caption);font-weight:var(--fw-h1);color:var(--indigo600);line-height:1.6">지난 6개월간 자산이 꾸준히 상승하고 있어요! 🚀<br>평균적으로 매월 약 25만원씩 저축되고 있습니다.</div>
+      <div style="font-size:var(--fs-caption);font-weight:var(--fw-h1);color:var(--indigo600);line-height:1.6">${analysisText}</div>
     </div>
   </div>
   <div style="height:20px"></div>`;
@@ -1992,9 +2065,17 @@ function renderAssetCharts(){
     const data = [];
     for(let i=5;i>=0;i--){
       const d=new Date(state.year,state.month-1-i,1);
-      const base=6500000;
-      const growth=(5-i)*250000;
-      data.push({name:`${d.getMonth()+1}월`, value:i===0?totNow:base+growth});
+      const yyyy=d.getFullYear();
+      const mm=String(d.getMonth()+1).padStart(2,'0');
+      const ym=`${yyyy}-${mm}`;
+      const label=`${d.getMonth()+1}월`;
+      const hasTx=TRANSACTIONS.some(t=>t.date.startsWith(ym));
+      if(!hasTx && i!==0) continue;
+      const futureSum=TRANSACTIONS
+        .filter(t=>t.date>`${ym}-31`&&t.date<=todayStr)
+        .reduce((s,t)=>s+t.amount,0);
+      const val=i===0?totNow:totNow-futureSum;
+      data.push({name:label, value:val});
     }
     const ctx = document.getElementById('assetLineChart');
     if(ctx){
@@ -2098,8 +2179,9 @@ function renderSettings(){
     </div>
 
     <div class="settings-section">
-      <div class="settings-card" onclick="openSubview('fixed-expenses')" style="cursor:pointer">
-        <div class="settings-row">
+      <div class="settings-section-title">매월 반복 항목</div>
+      <div class="settings-card">
+        <div class="settings-row" onclick="openSubview('fixed-expenses')" style="cursor:pointer">
           <div class="settings-row-left">
             ${settingsIcon('receipt-text', '#F59E0B')}
             <div>
@@ -2109,12 +2191,23 @@ function renderSettings(){
           </div>
           ${luIcon('chevron-right', 18)}
         </div>
+        <div class="settings-row" onclick="openSubview('fixed-transfers')" style="cursor:pointer">
+          <div class="settings-row-left">
+            ${settingsIcon('arrow-left-right', '#10B981')}
+            <div>
+              <div class="settings-row-title">고정 이체 관리</div>
+              <div class="settings-row-sub">매월 반복 이체 · ${FIXED_TRANSFERS.length}개</div>
+            </div>
+          </div>
+          ${luIcon('chevron-right', 18)}
+        </div>
       </div>
     </div>
 
     <div class="settings-section">
-      <div class="settings-card" onclick="openSubview('accounts')" style="cursor:pointer">
-        <div class="settings-row">
+      <div class="settings-section-title">항목 관리</div>
+      <div class="settings-card">
+        <div class="settings-row" onclick="openSubview('accounts')" style="cursor:pointer">
           <div class="settings-row-left">
             ${settingsIcon('wallet', '#4F46E5')}
             <div>
@@ -2124,12 +2217,7 @@ function renderSettings(){
           </div>
           ${luIcon('chevron-right', 18)}
         </div>
-      </div>
-    </div>
-
-    <div class="settings-section">
-      <div class="settings-card" onclick="openSubview('cards')" style="cursor:pointer">
-        <div class="settings-row">
+        <div class="settings-row" onclick="openSubview('cards')" style="cursor:pointer">
           <div class="settings-row-left">
             ${settingsIcon('credit-card', '#0284C7')}
             <div>
@@ -2139,12 +2227,7 @@ function renderSettings(){
           </div>
           ${luIcon('chevron-right', 18)}
         </div>
-      </div>
-    </div>
-
-    <div class="settings-section">
-      <div class="settings-card" onclick="openSubview('categories')" style="cursor:pointer">
-        <div class="settings-row">
+        <div class="settings-row" onclick="openSubview('categories')" style="cursor:pointer">
           <div class="settings-row-left">
             ${settingsIcon('tag', '#E11D48')}
             <div>
@@ -2549,11 +2632,13 @@ function openSubview(type){
   sv.className='subview';
   sv.id='subview';
   
-  let title = type==='fixed-expenses'?'고정지출 관리':type==='accounts'?'계좌 관리':type==='cards'?'카드 & 할부 관리':'카테고리 관리';
+  let title = type==='fixed-expenses'?'고정지출 관리':type==='fixed-transfers'?'고정 이체 관리':type==='accounts'?'계좌 관리':type==='cards'?'카드 & 할부 관리':'카테고리 관리';
   let content = '';
   
   if(type==='fixed-expenses'){
     content = renderFixedExpenseList();
+  } else if(type==='fixed-transfers'){
+    content = renderFixedTransferList();
   } else if(type==='accounts'){
     content=renderAccountList()+'<button class="btn-primary" onclick="openAccountModal(null)" style="margin-top:4px">+ 계좌 추가</button>';
   } else if(type==='categories'){
@@ -3071,7 +3156,228 @@ function catDrop(e, targetId, type) {
   if (state.tab === 'settings') renderContent();
 }
 
+// ===== FIXED TRANSFER MANAGEMENT =====
 
+function renderFixedTransferList() {
+  if (FIXED_TRANSFERS.length === 0) {
+    return `<div style="text-align:center;padding:40px 20px">
+      <div style="font-size:36px;margin-bottom:12px">🔄</div>
+      <div style="font-size:var(--fs-sub);font-weight:var(--fw-h1);color:var(--gray400)">등록된 고정 이체가 없어요</div>
+      <div style="font-size:var(--fs-caption);color:var(--gray300);margin-top:4px">아래 버튼으로 추가해보세요</div>
+    </div>
+    <button class="btn-primary" onclick="openFtModal(null)">+ 고정 이체 추가</button>`;
+  }
+  const sorted = [...FIXED_TRANSFERS].sort((a, b) => a.day - b.day);
+  return sorted.map(ft => {
+    const fromAcc = ACCOUNTS.find(a => a.id === ft.fromAccountId);
+    const toAcc   = ACCOUNTS.find(a => a.id === ft.toAccountId);
+    return `<div class="card" style="margin-bottom:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div style="display:flex;align-items:center;gap:14px;flex:1;min-width:0">
+          <div style="width:44px;height:44px;border-radius:14px;background:#ECFDF5;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">🔄</div>
+          <div style="min-width:0">
+            <div style="font-size:var(--fs-sub);font-weight:var(--fw-h1);color:var(--gray800);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${ft.name}</div>
+            <div style="font-size:var(--fs-caption);color:var(--gray400);margin-top:2px">
+              매월 ${ft.day}일 · ${fromAcc?.name||'?'} → ${toAcc?.name||'?'}
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0;margin-left:8px">
+          <span style="font-size:var(--fs-sub);font-weight:var(--fw-display);color:var(--emerald500)">-${fmt(ft.amount)}원</span>
+          <div style="display:flex;gap:6px">
+            <button onclick="openFtModal('${ft.id}')"
+              style="font-size:var(--fs-caption);font-weight:var(--fw-h1);color:var(--indigo600);background:var(--indigo50);border:none;cursor:pointer;padding:5px 10px;border-radius:8px">수정</button>
+            <button onclick="confirmDeleteFt('${ft.id}')"
+              style="font-size:var(--fs-caption);font-weight:var(--fw-h1);color:var(--red500);background:#FEF2F2;border:none;cursor:pointer;padding:5px 10px;border-radius:8px">삭제</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }).join('') + `<button class="btn-primary" onclick="openFtModal(null)" style="margin-top:4px">+ 고정 이체 추가</button>`;
+}
+
+function refreshFixedTransferSubview() {
+  const sc = document.querySelector('.subview-content');
+  if (!sc) return;
+  sc.innerHTML = renderFixedTransferList();
+}
+
+function openFtModal(ftId) {
+  const isEdit = ftId !== null;
+  const ft = isEdit ? FIXED_TRANSFERS.find(f => f.id === ftId) : null;
+  const accOptions1 = ACCOUNTS.map(a =>
+    `<option value="${a.id}" ${ft?.fromAccountId === a.id ? 'selected' : ''}>${a.name}</option>`
+  ).join('');
+  const accOptions2 = ACCOUNTS.map(a =>
+    `<option value="${a.id}" ${ft?.toAccountId === a.id ? 'selected' : ''}>${a.name}</option>`
+  ).join('');
+
+  const html = `
+  <div id="ftModal" class="overlay" style="z-index:110" onclick="if(event.target===this)removeModal('ftModal')"></div>
+  <div id="ftModalSheet" class="sheet" style="z-index:120;max-height:88vh">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <h2 class="sheet-title" style="font-size:var(--fs-h2)">${isEdit ? '고정 이체 수정' : '고정 이체 추가'}</h2>
+      <button class="btn-close" onclick="removeModal('ftModal')">닫기</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:20px">
+      <div class="form-group">
+        <label class="form-label">이체 이름</label>
+        <input id="ftName" type="text" class="form-input" placeholder="예: 청년희망적금" value="${ft?.name || ''}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">이체 금액</label>
+        <div class="amount-wrap">
+          <input id="ftAmount" type="text" inputmode="numeric" class="form-input amount"
+            placeholder="0" value="${ft?.amount ? ft.amount.toLocaleString() : ''}">
+          <span class="amount-won">원</span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">매월 이체일</label>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:var(--fs-caption);font-weight:var(--fw-h1);color:var(--gray400)">매월</span>
+          <input id="ftDay" type="number" min="1" max="31" class="num-input"
+            value="${ft?.day || 1}" style="width:64px">
+          <span style="font-size:var(--fs-caption);font-weight:var(--fw-h1);color:var(--gray400)">일</span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">출금 계좌</label>
+        <select id="ftFromAccount" class="form-select">
+          ${accOptions1}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">입금 계좌</label>
+        <select id="ftToAccount" class="form-select">
+          ${accOptions2}
+        </select>
+      </div>
+      <div class="btn-row" style="padding-top:4px">
+        <button class="btn-secondary" onclick="removeModal('ftModal')">취소</button>
+        <button class="btn-primary" onclick="saveFt('${ftId || ''}')">
+          ${isEdit ? '수정 완료' : '추가하기'}
+        </button>
+      </div>
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+  const amtInput = document.getElementById('ftAmount');
+  if (amtInput) {
+    amtInput.addEventListener('input', function () {
+      const raw = this.value.replace(/,/g, '');
+      if (!isNaN(Number(raw)) || raw === '') this.value = raw ? Number(raw).toLocaleString() : '';
+    });
+  }
+}
+
+function saveFt(ftId) {
+  const name = (document.getElementById('ftName')?.value || '').trim();
+  if (!name) { showToast('이체 이름을 입력해주세요'); return; }
+  const rawAmt = (document.getElementById('ftAmount')?.value || '').replace(/,/g, '');
+  const amount = parseInt(rawAmt) || 0;
+  if (amount < 1) { showToast('금액을 입력해주세요'); return; }
+  const day = Math.max(1, Math.min(31, parseInt(document.getElementById('ftDay')?.value) || 1));
+  const fromAccountId = document.getElementById('ftFromAccount')?.value || '';
+  const toAccountId   = document.getElementById('ftToAccount')?.value || '';
+  if (fromAccountId === toAccountId) { showToast('출금/입금 계좌가 같아요'); return; }
+
+  const isEdit = ftId !== '';
+  if (!isEdit) {
+    FIXED_TRANSFERS.push({ id: 'ft' + Date.now(), name, amount, day, fromAccountId, toAccountId });
+    removeModal('ftModal');
+    autoGenerateFixedTransfers();
+    refreshFixedTransferSubview();
+    if (state.tab === 'settings') renderContent(); else render();
+    showToast('고정 이체가 추가되었어요!');
+  } else {
+    const idx = FIXED_TRANSFERS.findIndex(f => f.id === ftId);
+    if (idx !== -1) FIXED_TRANSFERS[idx] = { ...FIXED_TRANSFERS[idx], name, amount, day, fromAccountId, toAccountId };
+    removeModal('ftModal');
+    autoGenerateFixedTransfers();
+    refreshFixedTransferSubview();
+    if (state.tab === 'settings') renderContent(); else render();
+    showToast('고정 이체가 수정되었어요!');
+  }
+}
+
+function confirmDeleteFt(ftId) {
+  const ft = FIXED_TRANSFERS.find(f => f.id === ftId);
+  if (!ft) return;
+  const html = `
+  <div id="ftDelModal" class="overlay" style="z-index:160" onclick="if(event.target===this)removeModal('ftDelModal')"></div>
+  <div id="ftDelSheet" class="sheet" style="z-index:170">
+    <div class="sheet-handle"></div>
+    <div style="padding:0 20px 24px">
+      <h2 style="font-size:var(--fs-h2);font-weight:var(--fw-h1);margin-bottom:6px">고정 이체 삭제</h2>
+      <p style="font-size:var(--fs-sub);color:var(--gray500);margin-bottom:20px">
+        <strong style="color:var(--gray800)">${ft.name}</strong>을 고정 이체에서 삭제할까요?<br>
+        <span style="font-size:var(--fs-caption);color:var(--gray400)">이미 생성된 거래 내역은 유지됩니다.</span>
+      </p>
+      <div class="btn-row">
+        <button class="btn-secondary" onclick="removeModal('ftDelModal')">취소</button>
+        <button class="btn-primary" style="background:var(--red500)" onclick="deleteFt('${ftId}')">삭제</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function deleteFt(ftId) {
+  const idx = FIXED_TRANSFERS.findIndex(f => f.id === ftId);
+  if (idx !== -1) FIXED_TRANSFERS.splice(idx, 1);
+  removeModal('ftDelModal');
+  refreshFixedTransferSubview();
+  if (state.tab === 'settings') renderContent(); else render();
+  showToast('삭제되었어요');
+}
+
+function autoGenerateFixedTransfers() {
+  const now = new Date(todayStr);
+  const todayDay = now.getDate();
+  const todayYM  = todayStr.slice(0, 7);
+  const existingKeys = new Set(
+    TRANSACTIONS.filter(t => t.ftSourceId).map(t => t.ftSourceId + '_' + t.date.slice(0, 7))
+  );
+  let added = 0;
+  FIXED_TRANSFERS.forEach(ft => {
+    for (let offset = 5; offset >= 0; offset--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - offset, 1);
+      const yyyy = d.getFullYear();
+      const mm   = String(d.getMonth() + 1).padStart(2, '0');
+      const ym   = `${yyyy}-${mm}`;
+      if (ym === todayYM && ft.day > todayDay) continue;
+      const key = ft.id + '_' + ym;
+      if (existingKeys.has(key)) continue;
+      const maxDay  = new Date(yyyy, d.getMonth() + 1, 0).getDate();
+      const realDay = Math.min(ft.day, maxDay);
+      const dateStr = `${ym}-${String(realDay).padStart(2, '0')}`;
+      // 출금 거래
+      TRANSACTIONS.push({
+        id: Date.now() + Math.random(),
+        date: dateStr, desc: ft.name,
+        amount: -Math.abs(ft.amount),
+        category: 'transfer', accountId: ft.fromAccountId,
+        isCard: false, memo: '', tags: ['#이체'],
+        ftSourceId: ft.id, autoFixed: true,
+      });
+      // 입금 거래
+      TRANSACTIONS.push({
+        id: Date.now() + Math.random(),
+        date: dateStr, desc: ft.name,
+        amount: Math.abs(ft.amount),
+        category: 'transfer', accountId: ft.toAccountId,
+        isCard: false, memo: '', tags: ['#이체'],
+        ftSourceId: ft.id, autoFixed: true,
+      });
+      existingKeys.add(key);
+      added++;
+    }
+  });
+  if (added > 0) TRANSACTIONS.sort((a, b) => b.date.localeCompare(a.date));
+  return added;
+}
 // ===== FIXED EXPENSE MANAGEMENT =====
 
 function renderFixedExpenseList() {
