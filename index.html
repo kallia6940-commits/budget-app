@@ -897,21 +897,7 @@ const INITIAL_FIXED_TRANSFERS = [];
 let FIXED_TRANSFERS = [...INITIAL_FIXED_TRANSFERS];
 
 let TRANSACTIONS = [
-  {id:1,date:'2026-03-09',desc:'마트',amount:-43500,category:'shopping',accountId:'acc1',isCard:true,memo:'주간 장보기',tags:['#생활비']},
-  {id:2,date:'2026-03-09',desc:'지하철',amount:-1400,category:'transport',accountId:'acc1',isCard:false,memo:'',tags:[]},
-  {id:3,date:'2026-03-08',desc:'카페라떼',amount:-5500,category:'food',accountId:'acc2',isCard:true,memo:'',tags:['#커피']},
-  {id:4,date:'2026-03-07',desc:'점심 식사',amount:-12000,category:'food',accountId:'acc1',isCard:false,memo:'친구랑',tags:['#점심','#외식']},
-  {id:5,date:'2026-03-07',desc:'월급',amount:2800000,category:'salary',accountId:'acc2',isCard:false,memo:'',tags:[]},
-  {id:6,date:'2026-03-05',desc:'넷플릭스',amount:-17000,category:'culture',accountId:'acc1',isCard:true,memo:'',tags:['#고정비']},
-  {id:7,date:'2026-03-03',desc:'택시',amount:-8700,category:'transport',accountId:'acc1',isCard:false,memo:'야근 후',tags:[]},
-  {id:8,date:'2026-03-02',desc:'청년희망적금',amount:-500000,category:'saving',accountId:'acc2',isCard:false,memo:'',tags:['#저축']},
-  {id:9,date:'2026-03-01',desc:'헬스장',amount:-55000,category:'health',accountId:'acc3',isCard:false,memo:'',tags:['#고정비']},
-  {id:10,date:'2026-02-28',desc:'저녁',amount:-28000,category:'food',accountId:'acc2',isCard:true,memo:'',tags:[]},
-  {id:11,date:'2026-02-25',desc:'월급',amount:2800000,category:'salary',accountId:'acc2',isCard:false,memo:'',tags:[]},
-  {id:12,date:'2026-02-20',desc:'옷',amount:-67000,category:'shopping',accountId:'acc1',isCard:true,memo:'세일',tags:['#쇼핑']},
-  {id:13,date:'2026-01-25',desc:'월급',amount:2800000,category:'salary',accountId:'acc2',isCard:false,memo:'',tags:[]},
-  {id:14,date:'2026-01-15',desc:'외식',amount:-35000,category:'food',accountId:'acc2',isCard:true,memo:'',tags:[]},
-];
+  let TRANSACTIONS = [];
 
 let DAY_MEMOS = {
   '2026-03-07':'친구랑 점심 맛있게 먹음 🍚',
@@ -2383,10 +2369,17 @@ function cancelMultiSelect(){
 
 function deleteSelected(){
   if(!confirm(`${state.selectedIds.length}개 내역을 삭제할까요?`)) return;
+const deletedIds = [...state.selectedIds];
   TRANSACTIONS=TRANSACTIONS.filter(t=>!state.selectedIds.includes(t.id));
   state.multiSelect=false;
   state.selectedIds=[];
   renderContent();
+
+  // Supabase에서도 삭제
+  supabaseClient.auth.getUser().then(({ data: { user } }) => {
+    if (!user) return;
+    supabaseClient.from('transactions').delete().in('id', deletedIds);
+  });
 }
 
 function editDayMemo(date){
@@ -4620,7 +4613,26 @@ function saveTransaction(keepOpen){
     TRANSACTIONS.unshift(newTx);
     showToast('저장되었어요!');
   }
-  
+
+  // Supabase에 바로 저장
+  supabaseClient.auth.getUser().then(({ data: { user } }) => {
+    if (!user) return;
+    supabaseClient.from('transactions').upsert({
+      id:            newTx.id,
+      user_id:       user.id,
+      date:          newTx.date,
+      time:          newTx.time || '00:00',
+      description:   newTx.desc,
+      amount:        newTx.amount,
+      category:      newTx.category,
+      account_id:    newTx.accountId,
+      to_account_id: newTx.toAccountId || null,
+      is_card:       newTx.isCard || false,
+      memo:          newTx.memo || '',
+      tags:          newTx.tags || []
+    }, { onConflict: 'id' });
+  });
+
   removeModal('addModal');removeModal('addModalSheet');
   
   if(keepOpen&&!editingId){
@@ -4719,10 +4731,16 @@ function deleteTx(id){
     deletedFxKeys.add(t.fxSourceId + '_' + t.date.slice(0, 7));
     localStorage.setItem('deletedFxKeys', JSON.stringify([...deletedFxKeys]));
   }
-  TRANSACTIONS=TRANSACTIONS.filter(t=>t.id!==id);
+TRANSACTIONS=TRANSACTIONS.filter(t=>t.id!==id);
   removeModal('detailModal');
   render();
   showToast('삭제되었어요');
+
+  // Supabase에서도 삭제
+  supabaseClient.auth.getUser().then(({ data: { user } }) => {
+    if (!user) return;
+    supabaseClient.from('transactions').delete().eq('id', id);
+  });
 }
 
 // ===== MEMO MODAL =====
@@ -4933,17 +4951,54 @@ function autoGenerateFixedExpenses() {
   return added;
 }
 // ===== 자동 동기화 =====
-// 1. 앱 열 때 동기화
+async function loadFromSupabase() {
+  const { data: { user } } = await supabaseClient.auth.getUser();
+  if (!user) return;
+
+  const { data, error } = await supabaseClient
+    .from('transactions')
+    .select('*')
+    .eq('user_id', user.id)
+    .order('date', { ascending: false });
+
+  if (error) {
+    console.error('불러오기 실패:', error);
+    showToast('데이터 불러오기 실패');
+    return;
+  }
+
+  // DB 컬럼명 → 앱 변수명으로 변환
+  TRANSACTIONS = data.map(t => ({
+    id:          t.id,
+    date:        t.date,
+    time:        t.time || '',
+    desc:        t.description,
+    amount:      t.amount,
+    category:    t.category,
+    accountId:   t.account_id,
+    toAccountId: t.to_account_id,
+    isCard:      t.is_card,
+    memo:        t.memo || '',
+    tags:        t.tags || []
+  }));
+
+  render();
+  showToast(`${TRANSACTIONS.length}건 불러왔어요!`);
+}
+
+// 1. 앱 열 때 불러오기
 checkUser().then(user => {
-  if (user) syncAllToSupabase();
+  if (user) {
+    loadFromSupabase();
+  }
 });
 
-// 2. 인터넷 연결될 때 동기화
+// 2. 인터넷 연결될 때 불러오기
 window.addEventListener('online', () => {
   checkUser().then(user => {
     if (user) {
       showToast('인터넷 연결됨 — 동기화 중...');
-      syncAllToSupabase();
+      loadFromSupabase();
     }
   });
 });
