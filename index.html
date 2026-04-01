@@ -869,10 +869,7 @@ let FIXED_TRANSFERS = [...INITIAL_FIXED_TRANSFERS];
 
 let TRANSACTIONS = [];
 
-let DAY_MEMOS = {
-  '2026-03-07':'친구랑 점심 맛있게 먹음 🍚',
-  '2026-03-04':'이번 달 식비 줄이기 도전! 🥗'
-};
+let DAY_MEMOS = {};
 
 // ===== STATE =====
 let state = {
@@ -2584,6 +2581,12 @@ function resetAllData(){
     TRANSACTIONS=[];
     renderContent();
     showToast('데이터가 초기화되었어요');
+
+    // Supabase에서도 삭제
+    supabaseClient.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+      supabaseClient.from('transactions').delete().eq('user_id', user.id);
+    });
   }
 }
 
