@@ -867,6 +867,8 @@ let FIXED_EXPENSES = [];
 const INITIAL_FIXED_TRANSFERS = [];
 let FIXED_TRANSFERS = [...INITIAL_FIXED_TRANSFERS];
 
+let ENVELOPES = [];
+
 let TRANSACTIONS = [];
 
 let DAY_MEMOS = {};
@@ -3778,12 +3780,6 @@ supabaseClient.auth.getUser().then(({ data: { user } }) => {
     }, { onConflict: 'id' });
   });
 
-supabaseClient.auth.getUser().then(({ data: { user } }) => {
-    if (!user) return;
-    supabaseClient.from('cards').delete().eq('id', cardId);
-    supabaseClient.from('installments').delete().eq('card_id', cardId);
-  });
-
   removeModal('cardModal');
   refreshCardSubview();
   if(state.tab==='settings') renderContent();
@@ -4345,11 +4341,6 @@ function confirmDeleteAccount(accId){
   const currentBal = bal[accId]||0;
   const hasTx = TRANSACTIONS.some(t=>t.accountId===accId||t.toAccountId===accId);
 
-supabaseClient.auth.getUser().then(({ data: { user } }) => {
-    if (!user) return;
-    supabaseClient.from('accounts').delete().eq('id', accId);
-  });
-
   removeModal('delAccModal');
 
   // 다른 계좌 목록 (이전 대상)
@@ -4826,6 +4817,15 @@ function saveMemo(){
   showToast('메모가 저장되었어요!');
 }
 
+  supabaseClient.auth.getUser().then(({ data: { user } }) => {
+    if (!user) return;
+    supabaseClient.from('day_memos').upsert(
+      { date, memo: content, user_id: user.id },
+      { onConflict: 'date,user_id' }
+    );
+  });
+
+
 // ===== PERIOD MODAL =====
 function showPeriodModal(){
   removeModal('periodModal');
@@ -5050,6 +5050,13 @@ async function loadAllFromSupabase() {
     id: f.id, name: f.name, amount: f.amount, day: f.day,
     fromAccountId: f.from_account_id, toAccountId: f.to_account_id
   }));
+  
+  const { data: memoData } = await supabaseClient
+    .from('day_memos').select('*').eq('user_id', user.id);
+  if (memoData) {
+    DAY_MEMOS = {};
+    memoData.forEach(m => { DAY_MEMOS[m.date] = m.memo; });
+  }
 
   autoGenerateFixedExpenses();
   render();
