@@ -4665,7 +4665,10 @@ const newTx={
       is_card:       newTx.isCard || false,
       memo:          newTx.memo || '',
       tags:          newTx.tags || []
-    }, { onConflict: 'id' });
+    }, { onConflict: 'id' })
+    .then(({ error }) => {
+      if (error) showToast('⚠️ 저장 실패: ' + error.message);
+    });
   });
 
   removeModal('addModal');removeModal('addModalSheet');
@@ -4997,7 +5000,7 @@ function autoGenerateFixedExpenses() {
 // ===== 자동 동기화 =====
 async function loadAllFromSupabase() {
   const { data: { user } } = await supabaseClient.auth.getUser();
-  if (!user) return;
+  if (!user) { showLoginScreen(); return; }
 
   // 거래내역
   const { data: txData } = await supabaseClient
@@ -5114,9 +5117,7 @@ window.addEventListener('online', () => {
     }
   });
 });
-// ===== INIT =====
-autoGenerateFixedExpenses();
-render();
+
 // ===== 예·적금 만기 처리 =====
 function openSavingActionSheet(accId){
   const acc = ACCOUNTS.find(a=>a.id===accId);
