@@ -4818,7 +4818,6 @@ function saveMemo(){
   removeModal('memoModal');
   render();
   showToast('메모가 저장되었어요!');
-}
 
   supabaseClient.auth.getUser().then(({ data: { user } }) => {
     if (!user) return;
@@ -4827,7 +4826,7 @@ function saveMemo(){
       { onConflict: 'date,user_id' }
     );
   });
-
+}
 
 // ===== PERIOD MODAL =====
 function showPeriodModal(){
