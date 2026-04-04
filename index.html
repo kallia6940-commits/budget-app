@@ -4297,8 +4297,8 @@ function saveAccount(accId){
       showToast('초기 잔액을 입력해주세요');
       return;
     }
-    const newAcc = {
-      id: 'acc'+Date.now(),
+const newAcc = {
+      id: crypto.randomUUID ? crypto.randomUUID() : 'acc-'+Date.now(),
       name, type, color, balance,
       ...(type==='saving' ? {
         savingType: window._accFormState?.savingType||'deposit',
@@ -4628,8 +4628,8 @@ function saveTransaction(keepOpen){
   const selectedAcc=ACCOUNTS.find(a=>a.id===formData.accountId);
   const isCard=selectedAcc?.type==='card';
   
-  const newTx={
-    id:editingId||Date.now(),
+const newTx={
+    id:editingId||(crypto.randomUUID?crypto.randomUUID():'tx-'+Date.now()),
     date:formData.date,time:formData.time,desc:formData.desc,
     amount: formData.type==='transfer' ? -Math.abs(amt)
       : formData.type==='expense'  ? (amt < 0 ? Math.abs(amt) : -Math.abs(amt))
@@ -5063,7 +5063,6 @@ async function loadAllFromSupabase() {
   showToast('데이터를 불러왔어요!');
 }
 // 1. 앱 열 때 불러오기
-checkUser().then(user => {
 // ===== 로그인 화면 =====
 function showLoginScreen() {
   document.getElementById('app').innerHTML = `
@@ -5097,6 +5096,8 @@ function showLoginScreen() {
     </div>
   `;
 }
+
+checkUser().then(user => {
   if (user) {
     loadAllFromSupabase();
   } else {
@@ -5227,8 +5228,8 @@ function confirmCloseSaving(accId){
   const targetAcc = ACCOUNTS.find(a=>a.id===targetId);
 
   // 이체 거래 생성
-  TRANSACTIONS.unshift({
-    id: Date.now(),
+TRANSACTIONS.unshift({
+    id: crypto.randomUUID ? crypto.randomUUID() : 'tx-'+Date.now(),
     date: todayStr,
     time: '',
     desc: `${acc.name} 만기 이체`,
