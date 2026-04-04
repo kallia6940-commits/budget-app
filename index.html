@@ -876,8 +876,8 @@ let DAY_MEMOS = {};
 // ===== STATE =====
 let state = {
   tab: 'home',
-  year: 2026,
-  month: 3,
+  year: today.getFullYear(),
+  month: today.getMonth() + 1,
   selectedDate: null,
   showIncome: false,
   isPeriodMode: false,
