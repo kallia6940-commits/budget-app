@@ -1135,6 +1135,15 @@ function renderTxItem(t, showCheckbox=false){
 
 // ===== MAIN RENDER =====
 function render(){
+  if (currentUser) {
+    supabaseClient.from('user_settings').upsert({
+      user_id: currentUser.id,
+      month_start_day: state.monthStartDay,
+      hide_income: state.hideIncome,
+      default_allowance: state.defaultAllowance,
+      monthly_budgets: state.monthlyBudgets,
+    }, { onConflict: 'user_id' });
+  }
   renderHeader();
   renderContent();
   renderNav();
@@ -5068,9 +5077,20 @@ async function loadAllFromSupabase() {
     memoData.forEach(m => { DAY_MEMOS[m.date] = m.memo; });
   }
 
+// 설정 불러오기
+  const { data: settingsData } = await supabaseClient
+    .from('user_settings').select('*').eq('user_id', user.id).single();
+  if (settingsData) {
+    state.monthStartDay = settingsData.month_start_day ?? 1;
+    state.hideIncome = settingsData.hide_income ?? true;
+    state.defaultAllowance = settingsData.default_allowance ?? 500000;
+    state.monthlyBudgets = settingsData.monthly_budgets ?? {};
+  }
+
   autoGenerateFixedExpenses();
   render();
   showToast('데이터를 불러왔어요!');
+}
 }
 // 1. 앱 열 때 불러오기
 // ===== 로그인 화면 =====
