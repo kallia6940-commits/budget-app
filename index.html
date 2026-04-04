@@ -873,6 +873,9 @@ let TRANSACTIONS = [];
 
 let DAY_MEMOS = {};
 
+const today = new Date();
+const todayStr = today.toISOString().split('T')[0];
+
 // ===== STATE =====
 let state = {
   tab: 'home',
@@ -899,9 +902,6 @@ let state = {
   settingsSubView: null,
   charts: {},
 };
-
-const today = new Date();
-const todayStr = today.toISOString().split('T')[0];
 
 // ===== HELPERS =====
 function fmt(n){return Number(n).toLocaleString('ko-KR')}
@@ -2564,7 +2564,7 @@ function _applyImport(rows){
     const accId = acc?.id || ACCOUNTS[0]?.id || 'acc1';
     const toAcc = ACCOUNTS.find(a => a.name === r.toAccName);
     TRANSACTIONS.push({
-      id: Date.now()+Math.random(),
+      id: crypto.randomUUID(),
       date: r.date, time: r.time||'00:00', desc: r.desc,
       amount: r.amount, category: catId,
       accountId: accId, toAccountId: toAcc?.id,
@@ -3251,7 +3251,7 @@ function saveFt(ftId) {
 
   const isEdit = ftId !== '';
   if (!isEdit) {
-    FIXED_TRANSFERS.push({ id: 'ft' + Date.now(), name, amount, day, fromAccountId, toAccountId });
+    FIXED_TRANSFERS.push({ id: crypto.randomUUID(), name, amount, day, fromAccountId, toAccountId });
     removeModal('ftModal');
     autoGenerateFixedTransfers();
     refreshFixedTransferSubview();
@@ -3321,7 +3321,7 @@ function autoGenerateFixedTransfers() {
       const dateStr = `${ym}-${String(realDay).padStart(2, '0')}`;
       // 출금 거래
       TRANSACTIONS.push({
-        id: Date.now() + Math.random(),
+        id: crypto.randomUUID(),
         date: dateStr, desc: ft.name,
         amount: -Math.abs(ft.amount),
         category: 'transfer', accountId: ft.fromAccountId,
@@ -3330,7 +3330,7 @@ function autoGenerateFixedTransfers() {
       });
       // 입금 거래
       TRANSACTIONS.push({
-        id: Date.now() + Math.random(),
+        id: crypto.randomUUID(),
         date: dateStr, desc: ft.name,
         amount: Math.abs(ft.amount),
         category: 'transfer', accountId: ft.toAccountId,
@@ -3497,7 +3497,7 @@ function saveFx(fxId) {
 
   if (!isEdit) {
     // 신규 추가 — 팝업 없이 바로 저장
-    FIXED_EXPENSES.push({ id: 'fx' + Date.now(), name, amount, day, category, accountId });
+    FIXED_EXPENSES.push({ id: crypto.randomUUID(), name, amount, day, category, accountId });
     removeModal('fxModal');
     autoGenerateFixedExpenses();
     refreshFixedExpenseSubview();
@@ -3763,7 +3763,7 @@ function saveCard(cardId){
     CARDS[idx] = {...CARDS[idx], name, paymentDay, startOffset, endOffset, linkedAccountId};
     showToast('카드가 수정되었어요!');
   } else {
-    CARDS.push({ id:'card'+Date.now(), name, paymentDay, startOffset, endOffset, linkedAccountId });
+    CARDS.push({ id: crypto.randomUUID(), name, paymentDay, startOffset, endOffset, linkedAccountId });
     showToast('카드가 추가되었어요!');
   }
 
@@ -3945,7 +3945,7 @@ function saveInstallment(instId, cardId){
     INSTALLMENTS[idx] = {...INSTALLMENTS[idx], name, totalMonths, paidMonths, monthlyAmount};
     showToast('할부가 수정되었어요!');
   } else {
-    INSTALLMENTS.push({ id:'inst'+Date.now(), cardId, name, totalMonths, paidMonths, monthlyAmount });
+    INSTALLMENTS.push({ id: crypto.randomUUID(), cardId, name, totalMonths, paidMonths, monthlyAmount });
     showToast('할부가 추가되었어요!');
   }
 supabaseClient.auth.getUser().then(({ data: { user } }) => {
@@ -4298,7 +4298,7 @@ function saveAccount(accId){
       return;
     }
 const newAcc = {
-      id: crypto.randomUUID ? crypto.randomUUID() : 'acc-'+Date.now(),
+      id: crypto.randomUUID(),
       name, type, color, balance,
       ...(type==='saving' ? {
         savingType: window._accFormState?.savingType||'deposit',
@@ -4418,7 +4418,7 @@ function executeDeleteAccount(accId, doTransfer){
     if(transferAmt!==0){
       // 이체 거래 기록 추가
       TRANSACTIONS.unshift({
-        id: Date.now(),
+        id: crypto.randomUUID(),
         date: todayStr,
         time: new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}),
         desc: `${acc.name} → ${ACCOUNTS.find(a=>a.id===targetId)?.name||''} 잔액 이전`,
@@ -4629,7 +4629,7 @@ function saveTransaction(keepOpen){
   const isCard=selectedAcc?.type==='card';
   
 const newTx={
-    id:editingId||(crypto.randomUUID?crypto.randomUUID():'tx-'+Date.now()),
+    id: editingId || crypto.randomUUID(),
     date:formData.date,time:formData.time,desc:formData.desc,
     amount: formData.type==='transfer' ? -Math.abs(amt)
       : formData.type==='expense'  ? (amt < 0 ? Math.abs(amt) : -Math.abs(amt))
@@ -4973,7 +4973,7 @@ function autoGenerateFixedExpenses() {
       const dateStr = `${ym}-${String(realDay).padStart(2, '0')}`;
 
       TRANSACTIONS.push({
-        id:         Date.now() + Math.random(), // 유일 ID
+        id:         crypto.randomUUID(), // 유일 ID
         date:       dateStr,
         desc:       fx.name,
         amount:     -Math.abs(fx.amount),       // 항상 지출
@@ -5230,7 +5230,7 @@ function confirmCloseSaving(accId){
 
   // 이체 거래 생성
 TRANSACTIONS.unshift({
-    id: crypto.randomUUID ? crypto.randomUUID() : 'tx-'+Date.now(),
+    id: crypto.randomUUID(),
     date: todayStr,
     time: '',
     desc: `${acc.name} 만기 이체`,
