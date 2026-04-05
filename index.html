@@ -313,9 +313,11 @@
   .tx-amt{font-size:var(--fs-amt);font-weight:var(--fw-h1)}
   .tx-amt.expense{color:var(--gray800)}
   .tx-amt.income{color:var(--emerald500)}
+  .tx-amt.transfer{color:var(--gray400)}
   .tx-won{font-size:var(--fs-caption);font-weight:var(--fw-h1)}
   .tx-won.expense{color:var(--gray400)}
   .tx-won.income{color:var(--emerald400)}
+  .tx-won.transfer{color:var(--gray300)}
   .tx-list{display:flex;flex-direction:column;gap:4px}
 
   /* Day memo */
@@ -1101,7 +1103,7 @@ function renderTxItem(t, showCheckbox=false){
   const acc = getacc(t.accountId);
   const isExp = isExpenseTx(t);
   const isTransfer = t.category==='transfer';
-  const amtCls = isIncomeTx(t) ? 'income' : 'expense';
+  const amtCls = isTransfer ? 'transfer' : isIncomeTx(t) ? 'income' : 'expense';
   const isSelected = state.selectedIds.includes(t.id);
   
   let metaText = '';
@@ -2399,10 +2401,26 @@ function getDaysInMonth(y,m){return new Date(y,m,0).getDate();}
 
 function exportCSV(){
 const headers=['날짜','시간','내용','입금','출금','분류','카테고리','계좌','받는계좌','카드','메모','태그'];
+
+// 이체 쌍 매칭: toAccountId 없는 경우 날짜+금액+desc로 입금 거래 찾아서 받는계좌 보완
+const transferMap = {};
+TRANSACTIONS.filter(t=>t.category==='transfer').forEach(t=>{
+  const key = `${t.date}_${Math.abs(t.amount)}_${t.desc}`;
+  if(!transferMap[key]) transferMap[key] = {out:null, in:null};
+  if(t.amount < 0) transferMap[key].out = t;
+  else transferMap[key].in = t;
+});
+
 const rows=TRANSACTIONS.flatMap(t=>{
-  // 이체 입금 거래(amount>0)는 출금 거래에 합쳐지므로 건너뜀
-  if(t.category==='transfer' && t.amount > 0) return [];
+  if(t.category==='transfer' && t.amount > 0) return []; // 입금 행 건너뜀
   const isTransfer = t.category==='transfer';
+  // toAccountId 없으면 쌍에서 찾기
+  let toAccId = t.toAccountId;
+  if(isTransfer && !toAccId){
+    const key = `${t.date}_${Math.abs(t.amount)}_${t.desc}`;
+    const pair = transferMap[key];
+    if(pair?.in) toAccId = pair.in.accountId;
+  }
   return [[
     t.date, t.time || '', t.desc,
     isIncomeTx(t) ? t.amount : '',
@@ -2410,7 +2428,7 @@ const rows=TRANSACTIONS.flatMap(t=>{
     isIncomeTx(t)?'수입': isTransfer?'이체':'지출',
     getcat(t.category)?.name||t.category,
     getacc(t.accountId)?.name||t.accountId,
-    t.toAccountId ? getacc(t.toAccountId)?.name||'' : '',
+    toAccId ? getacc(toAccId)?.name||'' : '',
     t.isCard?'카드':'현금',
     t.memo||'',
     (t.tags||[]).join('|')
