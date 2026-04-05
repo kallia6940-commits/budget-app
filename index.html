@@ -3280,7 +3280,9 @@ supabaseClient.auth.getUser().then(({data:{user}})=>{
   supabaseClient.from('fixed_transfers').upsert({
     id:ft.id, user_id:user.id, name:ft.name, amount:ft.amount,
     day:ft.day, from_account_id:ft.fromAccountId, to_account_id:ft.toAccountId
-  },{onConflict:'id'});
+  },{onConflict:'id'}).then(({error})=>{
+    if(error) showToast('⚠️ 고정이체 저장 실패: '+error.message);
+  });
 });
   } else {
     const idx = FIXED_TRANSFERS.findIndex(f => f.id === ftId);
@@ -3297,7 +3299,9 @@ supabaseClient.auth.getUser().then(({data:{user}})=>{
   supabaseClient.from('fixed_transfers').upsert({
     id:ft.id, user_id:user.id, name:ft.name, amount:ft.amount,
     day:ft.day, from_account_id:ft.fromAccountId, to_account_id:ft.toAccountId
-  },{onConflict:'id'});
+  },{onConflict:'id'}).then(({error})=>{
+    if(error) showToast('⚠️ 고정이체 저장 실패: '+error.message);
+  });
 });
   }
 }
@@ -4361,6 +4365,13 @@ supabaseClient.auth.getUser().then(({ data: { user } }) => {
       balance: accToSave.balance, color: accToSave.color,
       rate: accToSave.rate || null, maturity: accToSave.maturity || null,
       monthly: accToSave.monthly || 0, order: accToSave.order || 0
+}, { onConflict: 'id' }).then(({error})=>{
+      if(error) showToast('⚠️ 계좌 저장 실패: '+error.message);
+});
+      type: accToSave.type, saving_type: accToSave.savingType || null,
+      balance: accToSave.balance, color: accToSave.color,
+      rate: accToSave.rate || null, maturity: accToSave.maturity || null,
+      monthly: accToSave.monthly || 0, order: accToSave.order || 0
     }, { onConflict: 'id' });
   });
 
@@ -4821,7 +4832,9 @@ TRANSACTIONS=TRANSACTIONS.filter(t=>t.id!==id);
   // Supabase에서도 삭제
   supabaseClient.auth.getUser().then(({ data: { user } }) => {
     if (!user) return;
-    supabaseClient.from('transactions').delete().eq('id', id);
+    supabaseClient.from('transactions').delete().eq('id', id).then(({error})=>{
+      if(error) showToast('⚠️ 삭제 실패: '+error.message);
+    });
   });
 }
 
