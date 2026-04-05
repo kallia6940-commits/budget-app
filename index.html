@@ -1130,7 +1130,7 @@ return `<div class="tx-item${isSelected?' selected':''}" onclick="onTxClick('${t
       </div>
     </div>
     <div class="tx-amount">
-      <span class="tx-amt ${amtCls}">${fmt(t.amount)}</span><span class="tx-won ${amtCls}">원</span>
+      <span class="tx-amt ${amtCls}">${isTransfer ? fmt(Math.abs(t.amount)) : fmt(t.amount)}</span><span class="tx-won ${amtCls}">원</span>
     </div>
   </div>`;
 }
