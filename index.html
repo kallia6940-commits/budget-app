@@ -4365,14 +4365,9 @@ supabaseClient.auth.getUser().then(({ data: { user } }) => {
       balance: accToSave.balance, color: accToSave.color,
       rate: accToSave.rate || null, maturity: accToSave.maturity || null,
       monthly: accToSave.monthly || 0, order: accToSave.order || 0
-}, { onConflict: 'id' }).then(({error})=>{
+    }, { onConflict: 'id' }).then(({error})=>{
       if(error) showToast('⚠️ 계좌 저장 실패: '+error.message);
-});
-      type: accToSave.type, saving_type: accToSave.savingType || null,
-      balance: accToSave.balance, color: accToSave.color,
-      rate: accToSave.rate || null, maturity: accToSave.maturity || null,
-      monthly: accToSave.monthly || 0, order: accToSave.order || 0
-    }, { onConflict: 'id' });
+    });
   });
 
   removeModal('accModal');
