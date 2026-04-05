@@ -3274,6 +3274,14 @@ function saveFt(ftId) {
     refreshFixedTransferSubview();
     if (state.tab === 'settings') renderContent(); else render();
     showToast('고정 이체가 추가되었어요!');
+supabaseClient.auth.getUser().then(({data:{user}})=>{
+  if(!user) return;
+  const ft=FIXED_TRANSFERS[FIXED_TRANSFERS.length-1];
+  supabaseClient.from('fixed_transfers').upsert({
+    id:ft.id, user_id:user.id, name:ft.name, amount:ft.amount,
+    day:ft.day, from_account_id:ft.fromAccountId, to_account_id:ft.toAccountId
+  },{onConflict:'id'});
+});
   } else {
     const idx = FIXED_TRANSFERS.findIndex(f => f.id === ftId);
     if (idx !== -1) FIXED_TRANSFERS[idx] = { ...FIXED_TRANSFERS[idx], name, amount, day, fromAccountId, toAccountId };
@@ -3282,6 +3290,15 @@ function saveFt(ftId) {
     refreshFixedTransferSubview();
     if (state.tab === 'settings') renderContent(); else render();
     showToast('고정 이체가 수정되었어요!');
+supabaseClient.auth.getUser().then(({data:{user}})=>{
+  if(!user) return;
+  const ft=FIXED_TRANSFERS.find(f=>f.id===ftId);
+  if(!ft) return;
+  supabaseClient.from('fixed_transfers').upsert({
+    id:ft.id, user_id:user.id, name:ft.name, amount:ft.amount,
+    day:ft.day, from_account_id:ft.fromAccountId, to_account_id:ft.toAccountId
+  },{onConflict:'id'});
+});
   }
 }
 
@@ -3314,6 +3331,10 @@ function deleteFt(ftId) {
   refreshFixedTransferSubview();
   if (state.tab === 'settings') renderContent(); else render();
   showToast('삭제되었어요');
+supabaseClient.auth.getUser().then(({data:{user}})=>{
+  if(!user) return;
+  supabaseClient.from('fixed_transfers').delete().eq('id',ftId);
+});
 }
 
 function autoGenerateFixedTransfers() {
@@ -4753,8 +4774,8 @@ function openDetailSheet(id){
       </div>
     </div>`:''}
     <div class="btn-row">
-      <button class="btn-secondary" onclick="editTx(${t.id})">수정</button>
-      <button style="flex:1;padding:16px;background:#FEF2F2;color:var(--red500);border:none;border-radius:16px;font-size:var(--fs-body);font-weight:var(--fw-h1);cursor:pointer" onclick="deleteTx(${t.id})">삭제</button>
+      <button class="btn-secondary" onclick="editTx('${t.id}')">수정</button>
+      <button style="flex:1;padding:16px;background:#FEF2F2;color:var(--red500);border:none;border-radius:16px;font-size:var(--fs-body);font-weight:var(--fw-h1);cursor:pointer" onclick="deleteTx('${t.id}')">삭제</button>
     </div>
   </div>`;
   
@@ -5025,7 +5046,8 @@ async function loadAllFromSupabase() {
     id: t.id, date: t.date, time: t.time || '',
     desc: t.description, amount: t.amount, category: t.category,
     accountId: t.account_id, toAccountId: t.to_account_id,
-    isCard: t.is_card, memo: t.memo || '', tags: t.tags || []
+    isCard: t.is_card, memo: t.memo || '', tags: t.tags || [],
+autoFixed: t.auto_fixed || false, fxSourceId: t.fx_source_id || null, ftSourceId: t.ft_source_id || null
   }));
 
   // 계좌
