@@ -4481,7 +4481,9 @@ function executeDeleteAccount(accId, doTransfer){
 if(state.tab==='settings') renderContent();
 supabaseClient.auth.getUser().then(({data:{user}})=>{
   if(!user) return;
-  supabaseClient.from('accounts').delete().eq('id', accId);
+  supabaseClient.from('accounts').delete().eq('id', accId).then(({error})=>{
+  if(error) showToast('⚠️ 삭제 실패: '+error.message);
+});
 });
 }
 
