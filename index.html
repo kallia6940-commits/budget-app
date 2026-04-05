@@ -4481,7 +4481,7 @@ function executeDeleteAccount(accId, doTransfer){
 if(state.tab==='settings') renderContent();
 supabaseClient.auth.getUser().then(({data:{user}})=>{
   if(!user) return;
-  supabaseClient.from('accounts').delete().eq('id', accId).then(({error})=>{
+supabaseClient.from('accounts').delete().eq('id', accId).select().then(({error})=>{
   if(error) showToast('⚠️ 삭제 실패: '+error.message);
 });
 });
@@ -5107,7 +5107,7 @@ autoFixed: t.auto_fixed || false, fxSourceId: t.fx_source_id || null, ftSourceId
 
 // 설정 불러오기
   const { data: settingsData } = await supabaseClient
-    .from('user_settings').select('*').eq('user_id', user.id).single();
+  .from('user_settings').select('*').eq('user_id', user.id).maybeSingle();
   if (settingsData) {
     state.monthStartDay = settingsData.month_start_day ?? 1;
     state.hideIncome = settingsData.hide_income ?? true;
