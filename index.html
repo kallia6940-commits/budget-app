@@ -2399,18 +2399,23 @@ function getDaysInMonth(y,m){return new Date(y,m,0).getDate();}
 
 function exportCSV(){
 const headers=['날짜','시간','내용','입금','출금','분류','카테고리','계좌','받는계좌','카드','메모','태그'];
-const rows=TRANSACTIONS.map(t=>[
+const rows=TRANSACTIONS.flatMap(t=>{
+  // 이체 입금 거래(amount>0)는 출금 거래에 합쳐지므로 건너뜀
+  if(t.category==='transfer' && t.amount > 0) return [];
+  const isTransfer = t.category==='transfer';
+  return [[
     t.date, t.time || '', t.desc,
-   isIncomeTx(t) ? t.amount : '',
-   isExpenseTx(t) ? Math.abs(t.amount) : '',
-   isIncomeTx(t)?'수입':t.category==='transfer'?'이체':'지출',
+    isIncomeTx(t) ? t.amount : '',
+    (isExpenseTx(t) || isTransfer) ? Math.abs(t.amount) : '',
+    isIncomeTx(t)?'수입': isTransfer?'이체':'지출',
     getcat(t.category)?.name||t.category,
-getacc(t.accountId)?.name||t.accountId,
-t.toAccountId ? getacc(t.toAccountId)?.name||'' : '',
-t.isCard?'카드':'현금',
-t.memo||'',
-(t.tags||[]).join('|')
-  ]);
+    getacc(t.accountId)?.name||t.accountId,
+    t.toAccountId ? getacc(t.toAccountId)?.name||'' : '',
+    t.isCard?'카드':'현금',
+    t.memo||'',
+    (t.tags||[]).join('|')
+  ]];
+});
   const csv=[headers,...rows].map(r=>r.map(c=>`"${c}"`).join(',')).join('\n');
   const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
   const url=URL.createObjectURL(blob);
