@@ -1117,7 +1117,7 @@ function renderTxItem(t, showCheckbox=false){
   const fixedBadge = t.autoFixed ? `<span class="tx-card-badge" style="background:#EEF2FF;color:var(--indigo600)">📌 고정</span>` : '';
   const checkHtml = showCheckbox ? `<div style="width:20px;height:20px;border-radius:50%;border:2px solid ${isSelected?'var(--indigo600)':'var(--gray200)'};background:${isSelected?'var(--indigo600)':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0">${isSelected?'<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>':''}</div>` : '';
   
-  return `<div class="tx-item${isSelected?' selected':''}" onclick="onTxClick(${t.id})" oncontextmenu="onTxLongPress(event,${t.id})">
+  return `<div class="tx-item${isSelected?' selected':''}" onclick="return `<div class="tx-item${isSelected?' selected':''}" onclick="onTxClick('${t.id}')" oncontextmenu="onTxLongPress(event,'${t.id}')">>
     <div class="tx-left">
       ${checkHtml}
       ${renderTxIcon(t.category)}
