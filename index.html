@@ -4478,7 +4478,11 @@ function executeDeleteAccount(accId, doTransfer){
   removeModal('delAccModal');
   showToast(`${acc.name} 계좌가 삭제되었어요`);
   refreshAccountSubview();
-  if(state.tab==='settings') renderContent();
+if(state.tab==='settings') renderContent();
+supabaseClient.auth.getUser().then(({data:{user}})=>{
+  if(!user) return;
+  supabaseClient.from('accounts').delete().eq('id', accId);
+});
 }
 
 // ===== ADD TRANSACTION MODAL =====
