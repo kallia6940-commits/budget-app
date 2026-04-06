@@ -2241,12 +2241,12 @@ function renderSettings(){
           ${luIcon('chevron-right',18)}
         </div>
         <input type="file" id="csvFileInput" accept=".csv,.xlsx,.xls" style="display:none" onchange="importCSV(this)">
-        <div class="settings-row" onclick="resetAllData()" style="cursor:pointer">
+        <div class="settings-row" onclick="openResetSheet()" style="cursor:pointer">
           <div class="settings-row-left">
             ${settingsIcon('trash', '#EF4444')}
             <div>
               <div class="settings-row-title" style="color:var(--red500)">데이터 초기화</div>
-              <div class="settings-row-sub">전체 거래 내역 삭제</div>
+              <div class="settings-row-sub">선택한 데이터만 삭제</div>
             </div>
           </div>
           ${luIcon('chevron-right',18)}
@@ -2625,18 +2625,118 @@ function _applyImport(rows){
 }
 
 
-function resetAllData(){
-  if(confirm('정말 모든 거래 내역을 삭제할까요?\n이 작업은 되돌릴 수 없어요!')) {
-    TRANSACTIONS=[];
-    renderContent();
-    showToast('데이터가 초기화되었어요');
+function openResetSheet(){
+  const overlay = document.createElement('div');
+  overlay.id = 'resetSheetOverlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;display:flex;align-items:flex-end;justify-content:center';
+  overlay.onclick = function(e){ if(e.target===overlay) closeResetSheet(); };
 
-    // Supabase에서도 삭제
-    supabaseClient.auth.getUser().then(({ data: { user } }) => {
-      if (!user) return;
-      supabaseClient.from('transactions').delete().eq('user_id', user.id);
-    });
+  const rows = [
+    {id:'reset_transactions',  label:'거래내역', desc:'기록된 모든 수입/지출/이체 내역'},
+    {id:'reset_accounts',      label:'계좌',     desc:'등록된 계좌 목록'},
+    {id:'reset_cards',         label:'카드',     desc:'등록된 카드 목록'},
+    {id:'reset_installments',  label:'할부',     desc:'진행 중인 할부 내역'},
+    {id:'reset_fixed_expenses',label:'고정지출', desc:'매월 반복 고정지출'},
+    {id:'reset_fixed_transfers',label:'고정이체',desc:'매월 반복 고정이체'},
+  ];
+
+  let rowsHtml = '';
+  for(let i=0;i<rows.length;i++){
+    const r = rows[i];
+    rowsHtml += '<label style="display:flex;align-items:center;gap:14px;padding:14px 16px;border:1.5px solid var(--gray200);border-radius:12px;cursor:pointer" onclick="toggleResetItem(event,\'' + r.id + '\')">'
+      + '<div id="' + r.id + '_box" style="width:22px;height:22px;border-radius:6px;border:2px solid var(--gray300);background:#fff;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .15s"></div>'
+      + '<div>'
+      + '<div style="font-size:var(--fs-body);font-weight:600;color:var(--gray800)">' + r.label + '</div>'
+      + '<div style="font-size:var(--fs-caption);color:var(--gray400)">' + r.desc + '</div>'
+      + '</div></label>';
   }
+
+  overlay.innerHTML = '<div style="background:#fff;width:100%;max-width:600px;border-radius:20px 20px 0 0;padding:24px 20px 40px;animation:slideUp .25s ease">'
+    + '<div style="width:40px;height:4px;background:var(--gray200);border-radius:2px;margin:0 auto 20px"></div>'
+    + '<div style="font-size:var(--fs-h2);font-weight:700;color:var(--red500);margin-bottom:6px">데이터 초기화</div>'
+    + '<div style="font-size:var(--fs-sub);color:var(--gray500);margin-bottom:20px">삭제할 데이터를 선택해주세요. 이 작업은 되돌릴 수 없어요.</div>'
+    + '<div style="display:flex;flex-direction:column;gap:12px;margin-bottom:28px">' + rowsHtml + '</div>'
+    + '<button onclick="confirmReset()" style="width:100%;padding:16px;background:var(--red500);color:#fff;border:none;border-radius:12px;font-size:var(--fs-body);font-weight:700;cursor:pointer">선택한 데이터 삭제</button>'
+    + '</div>';
+
+  document.body.appendChild(overlay);
+}
+
+
+function toggleResetItem(e, id){
+  e.preventDefault();
+  const box = document.getElementById(id+'_box');
+  const checked = box.dataset.checked === '1';
+  if(!checked){
+    box.dataset.checked = '1';
+    box.style.background = 'var(--red500)';
+    box.style.borderColor = 'var(--red500)';
+    box.innerHTML = `<svg width="13" height="10" viewBox="0 0 13 10" fill="none"><path d="M1.5 5L5 8.5L11.5 1.5" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    box.closest('label').style.borderColor = 'var(--red400)';
+    box.closest('label').style.background = '#FFF5F5';
+  } else {
+    box.dataset.checked = '0';
+    box.style.background = '#fff';
+    box.style.borderColor = 'var(--gray300)';
+    box.innerHTML = '';
+    box.closest('label').style.borderColor = 'var(--gray200)';
+    box.closest('label').style.background = '#fff';
+  }
+}
+
+function closeResetSheet(){
+  const el = document.getElementById('resetSheetOverlay');
+  if(el) el.remove();
+}
+
+async function confirmReset(){
+  const items = ['transactions','accounts','cards','installments','fixed_expenses','fixed_transfers'];
+  const selected = items.filter(k => {
+    const box = document.getElementById('reset_'+k+'_box');
+    return box && box.dataset.checked === '1';
+  });
+
+  if(selected.length === 0){
+    showToast('삭제할 항목을 선택해주세요');
+    return;
+  }
+
+  const labels = {'transactions':'거래내역','accounts':'계좌','cards':'카드','installments':'할부','fixed_expenses':'고정지출','fixed_transfers':'고정이체'};
+  const names = selected.map(k=>labels[k]).join(', ');
+
+  if(!confirm(`[${names}]을(를) 정말 삭제할까요?\n이 작업은 되돌릴 수 없어요!`)) return;
+
+  closeResetSheet();
+
+  // 로컬 데이터 초기화
+  if(selected.includes('transactions'))    TRANSACTIONS = [];
+  if(selected.includes('accounts'))        ACCOUNTS = [];
+  if(selected.includes('cards'))           CARDS = [];
+  if(selected.includes('installments'))    INSTALLMENTS = [];
+  if(selected.includes('fixed_expenses'))  FIXED_EXPENSES = [];
+  if(selected.includes('fixed_transfers')) FIXED_TRANSFERS = [];
+
+  renderContent();
+
+  // Supabase 삭제
+  const { data: { user } } = await supabaseClient.auth.getUser();
+  if(user){
+    const tableMap = {
+      'transactions':'transactions',
+      'accounts':'accounts',
+      'cards':'cards',
+      'installments':'installments',
+      'fixed_expenses':'fixed_expenses',
+      'fixed_transfers':'fixed_transfers'
+    };
+    for(const key of selected){
+      const table = tableMap[key];
+      const { error } = await supabaseClient.from(table).delete().eq('user_id', user.id);
+      if(error) console.error(`${table} 삭제 오류:`, error);
+    }
+  }
+
+  showToast(`${names} 데이터가 삭제되었어요`);
 }
 
 // ===== SUBVIEW (Settings sub pages) =====
