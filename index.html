@@ -1805,6 +1805,15 @@ function renderCurrentAssets(){
   const totAll = totChk+totSav+totInv;
   
   const envCards = ENVELOPES.filter(e=>checking.some(a=>a.id===e.accountId));
+  // 봉투별 잔액 계산 (해당 봉투로 배정된 거래 합산)
+  function getEnvelopeBal(envId){
+    return TRANSACTIONS
+      .filter(t=>t.envelopeId===envId && t.category!=='envelope_transfer')
+      .reduce((s,t)=>s+t.amount, 0)
+    + TRANSACTIONS
+      .filter(t=>t.envelopeId===envId && t.category==='envelope_transfer')
+      .reduce((s,t)=>s+t.amount, 0);
+  }
   
   return `
 
@@ -1847,12 +1856,37 @@ function renderCurrentAssets(){
       </div>
       ${envCards.length>0?`<div style="border-top:1px solid var(--gray50);padding-top:16px">
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px"><span>📩</span><span style="font-size:var(--fs-caption);font-weight:var(--fw-h1);color:var(--gray400)">봉투</span></div>
-        <div style="display:flex;flex-direction:column;gap:16px">
-          ${envCards.map(e=>{const pct=Math.round((e.saved/e.target)*100);return`<div>
-            <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="font-size:var(--fs-caption);font-weight:var(--fw-h1)">${e.icon} ${e.name}</span><span style="font-size:var(--fs-micro);font-weight:var(--fw-h1);color:var(--gray400)">${fmt(e.saved)} / ${fmt(e.target)}</span></div>
-            <div class="prog-bar"><div class="prog-fill" style="width:${Math.min(100,pct)}%;background:${e.color}"></div></div>
-            <div style="text-align:right;font-size:var(--fs-micro);font-weight:var(--fw-h1);color:var(--gray400);margin-top:4px">${pct}% 달성</div>
-          </div>`;}).join('')}
+        <div style="display:flex;flex-direction:column;gap:12px">
+          ${envCards.map(e=>{
+            const envBal = getEnvelopeBal(e.id);
+            const pct = e.budget>0 ? Math.round((envBal/e.budget)*100) : 0;
+            const isOver = e.budget>0 && envBal > e.budget;
+            return `<div onclick="openAccountModal(null)" style="cursor:default">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                <span style="font-size:var(--fs-body);font-weight:var(--fw-h1)">${e.icon} ${e.name}</span>
+                <div style="text-align:right">
+                  <div style="font-size:var(--fs-sub);font-weight:var(--fw-display);color:var(--gray900)">${fmt(envBal)}원</div>
+                  ${e.budget>0?`<div style="font-size:var(--fs-micro);color:var(--gray400)">예산 ${fmt(e.budget)}원</div>`:''}
+                </div>
+              </div>
+              ${e.budget>0?`<div class="prog-bar"><div class="prog-fill" style="width:${Math.min(100,pct)}%;background:${isOver?'#EF4444':e.color}"></div></div>`:''}
+            </div>`;
+          }).join('')}
+          ${(()=>{
+            const accEnvIds = envCards.map(e=>e.id);
+            const unassigned = checking
+              .filter(a=>envCards.some(e=>e.accountId===a.id))
+              .map(a=>{
+                const accBal = bal[a.id]||0;
+                const envTotal = ENVELOPES.filter(e=>e.accountId===a.id).reduce((s,e)=>s+getEnvelopeBal(e.id),0);
+                return accBal - envTotal;
+              }).reduce((s,v)=>s+v,0);
+            if(envCards.length===0) return '';
+            return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--gray100);margin-top:4px">
+              <span style="font-size:var(--fs-caption);font-weight:var(--fw-h1);color:var(--gray400)">📭 미배정</span>
+              <span style="font-size:var(--fs-caption);font-weight:var(--fw-display);color:var(--gray500)">${fmt(unassigned)}원</span>
+            </div>`;
+          })()}
         </div>
       </div>`:''}
     </div>
@@ -4383,6 +4417,31 @@ function openAccountModal(accId){
         </div>
       </div>
 
+      <!-- 봉투 관리 (입출금 계좌 수정 시만 표시) -->
+      ${isEdit && (acc?.type||'checking')==='checking' ? `
+      <div style="border-top:1px solid var(--gray100);padding-top:20px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <span style="font-size:var(--fs-caption);font-weight:var(--fw-h1);color:var(--gray400)">📩 봉투 관리</span>
+          <button onclick="openEnvelopeTransferModal('${accId}')" style="font-size:var(--fs-micro);font-weight:var(--fw-h1);color:var(--indigo600);background:none;border:none;cursor:pointer;font-family:var(--font)">봉투 간 이동</button>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px">
+          ${ENVELOPES.filter(e=>e.accountId===accId).map(e=>`
+            <div onclick="openEnvelopeModal('${accId}','${e.id}')" style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--gray50);border-radius:14px;cursor:pointer">
+              <div style="display:flex;align-items:center;gap:10px">
+                <span style="font-size:20px">${e.icon}</span>
+                <span style="font-size:var(--fs-body);font-weight:var(--fw-h1);color:var(--gray800)">${e.name}</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px">
+                ${e.budget>0?`<span style="font-size:var(--fs-caption);font-weight:var(--fw-h1);color:var(--gray400)">${fmt(e.budget)}원</span>`:''}
+                <span style="font-size:var(--fs-caption);color:var(--gray300)">›</span>
+              </div>
+            </div>`).join('')}
+        </div>
+        <button onclick="openEnvelopeModal('${accId}')" style="width:100%;padding:12px;background:var(--gray50);border:1.5px dashed var(--gray200);border-radius:14px;font-size:var(--fs-body);font-weight:var(--fw-h1);color:var(--indigo600);cursor:pointer;font-family:var(--font)">
+          + 봉투 추가
+        </button>
+      </div>` : ''}
+
       <div class="btn-row" style="padding-top:4px">
         <button class="btn-secondary" onclick="removeModal('accModal')">취소</button>
         <button class="btn-primary" onclick="saveAccount('${accId||''}')">
@@ -4657,7 +4716,7 @@ function openAddModal(prefill=null){
     formData={amount:'',type:'expense',date:todayStr,
       time:new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}),
       desc:'',category:'',accountId:'',toAccountId:'acc2',memo:'',tags:'',isCard:false,
-      isAllowance: state.defaultAllowanceOn};
+      isAllowance: state.defaultAllowanceOn, envelopeId: ''};
     editingId=null;
   }
   state.fabOpen=false;
@@ -4747,6 +4806,18 @@ function showAddModalUI(){
         <label class="form-label">메모</label>
         <textarea class="form-textarea" rows="2" placeholder="추가 메모를 입력하세요" oninput="formData.memo=this.value">${formData.memo}</textarea>
       </div>
+      ${(()=>{
+        const selAcc = ACCOUNTS.find(a=>a.id===formData.accountId);
+        const accEnvs = selAcc?.type==='checking' ? ENVELOPES.filter(e=>e.accountId===formData.accountId) : [];
+        if(accEnvs.length===0) return '';
+        return `<div class="form-group">
+          <label class="form-label">봉투 선택</label>
+          <select class="form-select" onchange="formData.envelopeId=this.value">
+            <option value="">📭 미배정</option>
+            ${accEnvs.map(e=>`<option value="${e.id}" ${formData.envelopeId===e.id?'selected':''}>${e.icon} ${e.name}</option>`).join('')}
+          </select>
+        </div>`;
+      })()}
       ${formData.type==='expense'?`<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--gray50);border-radius:14px">
         <div>
           <div style="font-size:var(--fs-body);font-weight:var(--fw-h1);color:var(--gray800)">용돈 차감</div>
@@ -4847,6 +4918,7 @@ const newTx={
     toAccountId:formData.type==='transfer'?formData.toAccountId:undefined,
     isCard:isCard||formData.isCard,
     isAllowance: formData.type==='expense' ? (formData.isAllowance!==false) : false,
+    envelopeId: formData.type!=='transfer' ? (formData.envelopeId||null) : null,
     memo:formData.memo,tags
   };
   
@@ -4873,6 +4945,7 @@ const newTx={
       to_account_id: newTx.toAccountId || null,
       is_card:       newTx.isCard || false,
       is_allowance:  newTx.isAllowance ?? true,
+      envelope_id:   newTx.envelopeId || null,
       memo:          newTx.memo || '',
       tags:          newTx.tags || []
     }, { onConflict: 'id' })
@@ -4975,7 +5048,8 @@ function editTx(id){
     desc:t.desc,category:t.category,
     accountId:t.accountId,toAccountId:t.toAccountId||'acc2',
     memo:t.memo||'',tags:(t.tags||[]).join(' '),isCard:t.isCard,
-    isAllowance: t.isAllowance!==false
+    isAllowance: t.isAllowance!==false,
+    envelopeId: t.envelopeId||''
   });
 }
 
@@ -5246,6 +5320,7 @@ async function loadAllFromSupabase() {
     desc: t.description, amount: t.amount, category: t.category,
     accountId: t.account_id, toAccountId: t.to_account_id,
     isCard: t.is_card, isAllowance: t.is_allowance ?? true,
+    envelopeId: t.envelope_id || null,
     memo: t.memo || '', tags: t.tags || [],
 autoFixed: t.auto_fixed || false, fxSourceId: t.fx_source_id || null, ftSourceId: t.ft_source_id || null
   }));
@@ -5290,6 +5365,14 @@ autoFixed: t.auto_fixed || false, fxSourceId: t.fx_source_id || null, ftSourceId
   if (ftData) FIXED_TRANSFERS = ftData.map(f => ({
     id: f.id, name: f.name, amount: f.amount, day: f.day,
     fromAccountId: f.from_account_id, toAccountId: f.to_account_id
+  }));
+
+  // 봉투
+  const { data: envData } = await supabaseClient
+    .from('envelopes').select('*').eq('user_id', user.id).order('order_num');
+  if (envData) ENVELOPES = envData.map(e => ({
+    id: e.id, accountId: e.account_id, name: e.name,
+    icon: e.icon, color: e.color, budget: e.budget, order: e.order_num
   }));
   
   const { data: memoData } = await supabaseClient
@@ -5370,6 +5453,216 @@ window.addEventListener('online', () => {
     }
   });
 });
+
+// ===== 봉투 관리 =====
+function openEnvelopeModal(accId, envId=null){
+  const env = envId ? ENVELOPES.find(e=>e.id===envId) : null;
+  const isEdit = !!env;
+  const ICONS = ['📩','🍚','🛍️','☕','🚌','💊','🎬','📚','💄','🏠','✈️','🎁','💰','🐾','⚡'];
+  const COLORS = ['#6366F1','#F59E0B','#10B981','#EF4444','#3B82F6','#8B5CF6','#EC4899','#14B8A6','#F97316','#84CC16'];
+
+  removeModal('envModal');
+  const html = `
+  <div id="envModal" class="overlay" style="z-index:130" onclick="if(event.target===this)removeModal('envModal')"></div>
+  <div id="envModalSheet" class="sheet" style="z-index:140;max-height:80vh">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <h2 class="sheet-title" style="font-size:var(--fs-h2)">${isEdit?'봉투 수정':'봉투 추가'}</h2>
+      <button class="btn-close" onclick="removeModal('envModal')">닫기</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:20px">
+      <div class="form-group">
+        <label class="form-label">봉투 이름</label>
+        <input id="envName" type="text" class="form-input" placeholder="예: 식비" value="${env?.name||''}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">아이콘</label>
+        <div id="envIconWrap" style="display:flex;flex-wrap:wrap;gap:8px">
+          ${ICONS.map(ic=>`<button onclick="selectEnvIcon('${ic}',this)" style="width:40px;height:40px;border-radius:12px;border:2px solid ${(env?.icon||'📩')===ic?'var(--indigo600)':'var(--gray200)'};background:${(env?.icon||'📩')===ic?'var(--indigo50)':'#fff'};font-size:18px;cursor:pointer" data-icon="${ic}">${ic}</button>`).join('')}
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">색상</label>
+        <div id="envColorWrap" style="display:flex;flex-wrap:wrap;gap:10px">
+          ${COLORS.map(c=>`<div onclick="selectEnvColor('${c}',this)" style="width:32px;height:32px;border-radius:50%;background:${c};cursor:pointer;border:3px solid ${(env?.color||'#6366F1')===c?'var(--gray800)':'transparent'}" data-color="${c}"></div>`).join('')}
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">월 예산 (선택)</label>
+        <div class="amount-wrap">
+          <input id="envBudget" type="text" inputmode="numeric" class="form-input amount" placeholder="0" value="${env?.budget?fmt(env.budget):''}">
+          <span class="amount-won">원</span>
+        </div>
+      </div>
+      <div class="btn-row" style="padding-top:4px">
+        ${isEdit?`<button style="flex:1;padding:16px;background:#FEF2F2;color:var(--red500);border:none;border-radius:16px;font-size:var(--fs-body);font-weight:var(--fw-h1);cursor:pointer;font-family:var(--font)" onclick="deleteEnvelope('${envId}')">삭제</button>`:''}
+        <button class="btn-primary" onclick="saveEnvelope('${accId}','${envId||''}')">
+          ${isEdit?'수정 완료':'추가하기'}
+        </button>
+      </div>
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+
+  window._envFormState = { icon: env?.icon||'📩', color: env?.color||'#6366F1' };
+
+  const budgetInput = document.getElementById('envBudget');
+  if(budgetInput){
+    budgetInput.addEventListener('input', function(){
+      const raw = this.value.replace(/,/g,'');
+      if(!isNaN(Number(raw))||raw==='') this.value = raw ? Number(raw).toLocaleString() : '';
+    });
+  }
+}
+
+window.selectEnvIcon = function(icon, el){
+  window._envFormState.icon = icon;
+  document.querySelectorAll('#envIconWrap button').forEach(b=>{
+    const active = b.dataset.icon === icon;
+    b.style.border = `2px solid ${active?'var(--indigo600)':'var(--gray200)'}`;
+    b.style.background = active ? 'var(--indigo50)' : '#fff';
+  });
+};
+
+window.selectEnvColor = function(color, el){
+  window._envFormState.color = color;
+  document.querySelectorAll('#envColorWrap div').forEach(d=>{
+    d.style.border = `3px solid ${d.dataset.color===color?'var(--gray800)':'transparent'}`;
+  });
+};
+
+async function saveEnvelope(accId, envId){
+  const name = (document.getElementById('envName')?.value||'').trim();
+  if(!name){ showToast('봉투 이름을 입력해주세요'); return; }
+  const icon = window._envFormState?.icon || '📩';
+  const color = window._envFormState?.color || '#6366F1';
+  const budget = parseInt((document.getElementById('envBudget')?.value||'0').replace(/,/g,''))||0;
+  const isEdit = envId !== '';
+
+  const { data: { user } } = await supabaseClient.auth.getUser();
+  if(!user) return;
+
+  if(isEdit){
+    const idx = ENVELOPES.findIndex(e=>e.id===envId);
+    if(idx===-1) return;
+    ENVELOPES[idx] = { ...ENVELOPES[idx], name, icon, color, budget };
+    await supabaseClient.from('envelopes').update({ name, icon, color, budget }).eq('id', envId);
+    showToast('봉투가 수정되었어요!');
+  } else {
+    const newEnv = { id: crypto.randomUUID(), accountId: accId, name, icon, color, budget, order: ENVELOPES.length };
+    ENVELOPES.push(newEnv);
+    await supabaseClient.from('envelopes').insert({
+      id: newEnv.id, user_id: user.id, account_id: accId,
+      name, icon, color, budget, order_num: newEnv.order
+    });
+    showToast('봉투가 추가되었어요!');
+  }
+  removeModal('envModal');
+  removeModal('accModal');
+  render();
+}
+
+async function deleteEnvelope(envId){
+  if(!confirm('봉투를 삭제할까요? 이 봉투에 배정된 거래는 미배정으로 변경돼요.')) return;
+  ENVELOPES = ENVELOPES.filter(e=>e.id!==envId);
+  TRANSACTIONS = TRANSACTIONS.map(t=> t.envelopeId===envId ? {...t, envelopeId: null} : t);
+  const { data: { user } } = await supabaseClient.auth.getUser();
+  if(user){
+    await supabaseClient.from('envelopes').delete().eq('id', envId);
+    await supabaseClient.from('transactions').update({ envelope_id: null }).eq('envelope_id', envId);
+  }
+  removeModal('envModal');
+  removeModal('accModal');
+  render();
+  showToast('봉투가 삭제되었어요');
+}
+
+// 봉투 간 이체
+function openEnvelopeTransferModal(accId){
+  const accEnvs = ENVELOPES.filter(e=>e.accountId===accId);
+  if(accEnvs.length < 2){ showToast('봉투가 2개 이상 필요해요'); return; }
+  removeModal('envTransferModal');
+  const html = `
+  <div id="envTransferModal" class="overlay" style="z-index:130" onclick="if(event.target===this)removeModal('envTransferModal')"></div>
+  <div id="envTransferSheet" class="sheet" style="z-index:140">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <h2 class="sheet-title" style="font-size:var(--fs-h2)">봉투 간 이동</h2>
+      <button class="btn-close" onclick="removeModal('envTransferModal')">닫기</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:20px">
+      <div class="form-group">
+        <label class="form-label">금액</label>
+        <div class="amount-wrap">
+          <input id="envTrAmt" type="text" inputmode="numeric" class="form-input amount" placeholder="0">
+          <span class="amount-won">원</span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">출발 봉투</label>
+        <select id="envTrFrom" class="form-select">
+          <option value="">선택</option>
+          ${accEnvs.map(e=>`<option value="${e.id}">${e.icon} ${e.name}</option>`).join('')}
+          <option value="__unassigned__">📭 미배정</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">도착 봉투</label>
+        <select id="envTrTo" class="form-select">
+          <option value="">선택</option>
+          ${accEnvs.map(e=>`<option value="${e.id}">${e.icon} ${e.name}</option>`).join('')}
+          <option value="__unassigned__">📭 미배정</option>
+        </select>
+      </div>
+      <button class="btn-primary" onclick="execEnvelopeTransfer('${accId}')">이동하기</button>
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+
+  document.getElementById('envTrAmt').addEventListener('input', function(){
+    const raw = this.value.replace(/,/g,'');
+    if(!isNaN(Number(raw))||raw==='') this.value = raw ? Number(raw).toLocaleString() : '';
+  });
+}
+
+async function execEnvelopeTransfer(accId){
+  const amt = parseInt((document.getElementById('envTrAmt')?.value||'0').replace(/,/g,''))||0;
+  const fromId = document.getElementById('envTrFrom')?.value;
+  const toId = document.getElementById('envTrTo')?.value;
+  if(!amt){ showToast('금액을 입력해주세요'); return; }
+  if(!fromId||!toId){ showToast('봉투를 선택해주세요'); return; }
+  if(fromId===toId){ showToast('같은 봉투예요'); return; }
+
+  // 봉투 이동은 두 개의 내부 거래로 기록 (출발: 지출처럼, 도착: 수입처럼)
+  const { data: { user } } = await supabaseClient.auth.getUser();
+  const today = new Date().toISOString().slice(0,10);
+  const fromEnv = ENVELOPES.find(e=>e.id===fromId);
+  const toEnv = ENVELOPES.find(e=>e.id===toId);
+  const fromName = fromId==='__unassigned__' ? '미배정' : (fromEnv?.icon+' '+fromEnv?.name);
+  const toName = toId==='__unassigned__' ? '미배정' : (toEnv?.icon+' '+toEnv?.name);
+
+  const outTx = { id: crypto.randomUUID(), date: today, time: '', desc: `봉투이동 → ${toName}`,
+    amount: -Math.abs(amt), category: 'envelope_transfer', accountId: accId,
+    envelopeId: fromId==='__unassigned__' ? null : fromId, isAllowance: false, memo: '', tags: [] };
+  const inTx = { id: crypto.randomUUID(), date: today, time: '', desc: `봉투이동 ← ${fromName}`,
+    amount: Math.abs(amt), category: 'envelope_transfer', accountId: accId,
+    envelopeId: toId==='__unassigned__' ? null : toId, isAllowance: false, memo: '', tags: [] };
+
+  TRANSACTIONS.unshift(inTx, outTx);
+  if(user){
+    await supabaseClient.from('transactions').insert([
+      { id: outTx.id, user_id: user.id, date: outTx.date, time: '00:00', description: outTx.desc,
+        amount: outTx.amount, category: outTx.category, account_id: accId,
+        envelope_id: outTx.envelopeId, is_allowance: false, memo: '', tags: [] },
+      { id: inTx.id, user_id: user.id, date: inTx.date, time: '00:00', description: inTx.desc,
+        amount: inTx.amount, category: inTx.category, account_id: accId,
+        envelope_id: inTx.envelopeId, is_allowance: false, memo: '', tags: [] }
+    ]);
+  }
+  removeModal('envTransferModal');
+  render();
+  showToast(`${fromName} → ${toName} 이동 완료!`);
+}
 
 // ===== 예·적금 만기 처리 =====
 function openSavingActionSheet(accId){
