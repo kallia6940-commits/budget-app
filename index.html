@@ -896,6 +896,7 @@ let state = {
   monthStartDay: 1,
   hideIncome: true,
   defaultAllowance: 500000,
+  defaultAllowanceOn: true,
   monthlyBudgets: {},
   expandedCategory: null,
   multiSelect: false,
@@ -1065,7 +1066,8 @@ function getFilteredTx(){
 function getTotals(txs){
   const income = txs.filter(t=>isIncomeTx(t)).reduce((s,t)=>s+t.amount,0);
   const expense = txs.filter(t=>isExpenseTx(t)).reduce((s,t)=>s+Math.abs(t.amount),0);
-  return {income,expense};
+  const allowanceExpense = txs.filter(t=>isExpenseTx(t)&&t.isAllowance!==false).reduce((s,t)=>s+Math.abs(t.amount),0);
+  return {income,expense,allowanceExpense};
 }
 
 function getBudget(){
@@ -1144,6 +1146,7 @@ async function saveSettings() {
     month_start_day: state.monthStartDay,
     hide_income: state.hideIncome,
     default_allowance: state.defaultAllowance,
+    default_allowance_on: state.defaultAllowanceOn,
     monthly_budgets: state.monthlyBudgets,
     categories: CATEGORIES,
   }, { onConflict: 'user_id' });
@@ -1276,9 +1279,9 @@ function renderContent(){
 // ===== HOME TAB =====
 function renderHome(){
   const txs = getFilteredTx();
-  const {income,expense} = getTotals(txs);
+  const {income,expense,allowanceExpense} = getTotals(txs);
   const budget = getBudget();
-  const remaining = budget - expense;
+  const remaining = budget - allowanceExpense;
   const isOver = remaining<0;
   const pct = Math.max(0,Math.min(100,(remaining/budget)*100));
   
@@ -2126,6 +2129,18 @@ function renderSettings(){
     <div class="settings-section">
       <div class="settings-section-title">용돈</div>
       <div class="settings-card">
+        <div class="settings-row">
+          <div class="settings-row-left">
+            ${settingsIcon('check-circle', '#059669')}
+            <div>
+              <div class="settings-row-title">기본값: 용돈 차감</div>
+              <div class="settings-row-sub">새 지출 거래의 용돈 차감 기본값</div>
+            </div>
+          </div>
+          <button class="toggle ${state.defaultAllowanceOn?'on':'off'}" onclick="state.defaultAllowanceOn=!state.defaultAllowanceOn;this.className='toggle '+(state.defaultAllowanceOn?'on':'off');this.innerHTML='<div class=\\'toggle-thumb\\'></div>';saveSettings()">
+            <div class="toggle-thumb"></div>
+          </button>
+        </div>
         <div class="settings-row">
           <div class="settings-row-left">
             ${settingsIcon('wallet', '#059669')}
@@ -4641,7 +4656,8 @@ function openAddModal(prefill=null){
   } else {
     formData={amount:'',type:'expense',date:todayStr,
       time:new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}),
-      desc:'',category:'',accountId:'',toAccountId:'acc2',memo:'',tags:'',isCard:false};
+      desc:'',category:'',accountId:'',toAccountId:'acc2',memo:'',tags:'',isCard:false,
+      isAllowance: state.defaultAllowanceOn};
     editingId=null;
   }
   state.fabOpen=false;
@@ -4731,6 +4747,15 @@ function showAddModalUI(){
         <label class="form-label">메모</label>
         <textarea class="form-textarea" rows="2" placeholder="추가 메모를 입력하세요" oninput="formData.memo=this.value">${formData.memo}</textarea>
       </div>
+      ${formData.type==='expense'?`<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--gray50);border-radius:14px">
+        <div>
+          <div style="font-size:var(--fs-body);font-weight:var(--fw-h1);color:var(--gray800)">용돈 차감</div>
+          <div style="font-size:var(--fs-micro);color:var(--gray400);margin-top:2px">이 거래를 용돈에서 차감해요</div>
+        </div>
+        <button id="allowanceToggleBtn" class="toggle ${formData.isAllowance!==false?'on':'off'}" onclick="formData.isAllowance=!formData.isAllowance;this.className='toggle '+(formData.isAllowance?'on':'off');this.innerHTML='<div class=\\'toggle-thumb\\'></div>'">
+          <div class="toggle-thumb"></div>
+        </button>
+      </div>`:''}
       <div class="btn-row" style="padding-top:4px">
         ${!editingId?`<button class="btn-secondary" onclick="saveTransaction(true)">계속 입력</button>`:''}
         <button class="btn-primary" onclick="saveTransaction(false)">${editingId?'수정 완료':'저장하기'}</button>
@@ -4821,6 +4846,7 @@ const newTx={
     accountId:formData.accountId,
     toAccountId:formData.type==='transfer'?formData.toAccountId:undefined,
     isCard:isCard||formData.isCard,
+    isAllowance: formData.type==='expense' ? (formData.isAllowance!==false) : false,
     memo:formData.memo,tags
   };
   
@@ -4846,6 +4872,7 @@ const newTx={
       account_id:    newTx.accountId,
       to_account_id: newTx.toAccountId || null,
       is_card:       newTx.isCard || false,
+      is_allowance:  newTx.isAllowance ?? true,
       memo:          newTx.memo || '',
       tags:          newTx.tags || []
     }, { onConflict: 'id' })
@@ -4918,6 +4945,15 @@ function openDetailSheet(id){
         <div style="font-size:var(--fs-micro);color:var(--indigo400);margin-top:2px">수정·삭제해도 이번 달만 적용돼요</div>
       </div>
     </div>`:''}
+    ${isExpenseTx(t)?`<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--gray50);border-radius:14px;margin-bottom:16px">
+      <div>
+        <div style="font-size:var(--fs-body);font-weight:var(--fw-h1);color:var(--gray800)">용돈 차감</div>
+        <div style="font-size:var(--fs-micro);color:var(--gray400);margin-top:2px">이 거래를 용돈에서 차감해요</div>
+      </div>
+      <button class="toggle ${t.isAllowance!==false?'on':'off'}" onclick="toggleTxAllowance('${t.id}',this)">
+        <div class="toggle-thumb"></div>
+      </button>
+    </div>`:''}
     <div class="btn-row">
       <button class="btn-secondary" onclick="editTx('${t.id}')">수정</button>
       <button style="flex:1;padding:16px;background:#FEF2F2;color:var(--red500);border:none;border-radius:16px;font-size:var(--fs-body);font-weight:var(--fw-h1);cursor:pointer" onclick="deleteTx('${t.id}')">삭제</button>
@@ -4938,12 +4974,28 @@ function editTx(id){
     date:t.date,time:t.time||'',
     desc:t.desc,category:t.category,
     accountId:t.accountId,toAccountId:t.toAccountId||'acc2',
-    memo:t.memo||'',tags:(t.tags||[]).join(' '),isCard:t.isCard
+    memo:t.memo||'',tags:(t.tags||[]).join(' '),isCard:t.isCard,
+    isAllowance: t.isAllowance!==false
   });
 }
 
 // 수동 삭제된 자동생성 고정비 거래 키 (재생성 방지)
 const deletedFxKeys = new Set(JSON.parse(localStorage.getItem('deletedFxKeys') || '[]'));
+
+function toggleTxAllowance(id, btn){
+  const t = TRANSACTIONS.find(tx=>tx.id===id);
+  if(!t) return;
+  t.isAllowance = t.isAllowance===false ? true : false;
+  btn.className = 'toggle ' + (t.isAllowance?'on':'off');
+  btn.innerHTML = '<div class="toggle-thumb"></div>';
+  renderHeader(); // 남은 용돈 즉시 반영
+  // Supabase 업데이트
+  supabaseClient.auth.getUser().then(({data:{user}})=>{
+    if(!user) return;
+    supabaseClient.from('transactions').update({is_allowance: t.isAllowance}).eq('id',id)
+      .then(({error})=>{ if(error) showToast('⚠️ 저장 실패: '+error.message); });
+  });
+}
 
 function deleteTx(id){
   if(!confirm('정말 삭제할까요?')) return;
@@ -5193,7 +5245,8 @@ async function loadAllFromSupabase() {
     id: t.id, date: t.date, time: t.time || '',
     desc: t.description, amount: t.amount, category: t.category,
     accountId: t.account_id, toAccountId: t.to_account_id,
-    isCard: t.is_card, memo: t.memo || '', tags: t.tags || [],
+    isCard: t.is_card, isAllowance: t.is_allowance ?? true,
+    memo: t.memo || '', tags: t.tags || [],
 autoFixed: t.auto_fixed || false, fxSourceId: t.fx_source_id || null, ftSourceId: t.ft_source_id || null
   }));
 
@@ -5253,6 +5306,7 @@ autoFixed: t.auto_fixed || false, fxSourceId: t.fx_source_id || null, ftSourceId
     state.monthStartDay = settingsData.month_start_day ?? 1;
     state.hideIncome = settingsData.hide_income ?? true;
     state.defaultAllowance = settingsData.default_allowance ?? 500000;
+    state.defaultAllowanceOn = settingsData.default_allowance_on ?? true;
     state.monthlyBudgets = settingsData.monthly_budgets ?? {};
     if (settingsData.categories && settingsData.categories.length > 0) {
       CATEGORIES = settingsData.categories;
