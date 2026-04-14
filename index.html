@@ -896,7 +896,6 @@ let state = {
   monthStartDay: 1,
   hideIncome: true,
   defaultAllowance: 500000,
-  defaultAllowanceOn: true,
   monthlyBudgets: {},
   expandedCategory: null,
   multiSelect: false,
@@ -1066,8 +1065,7 @@ function getFilteredTx(){
 function getTotals(txs){
   const income = txs.filter(t=>isIncomeTx(t)).reduce((s,t)=>s+t.amount,0);
   const expense = txs.filter(t=>isExpenseTx(t)).reduce((s,t)=>s+Math.abs(t.amount),0);
-  const allowanceExpense = txs.filter(t=>isExpenseTx(t)&&t.isAllowance!==false).reduce((s,t)=>s+Math.abs(t.amount),0);
-  return {income,expense,allowanceExpense};
+  return {income,expense};
 }
 
 function getBudget(){
@@ -1146,7 +1144,6 @@ async function saveSettings() {
     month_start_day: state.monthStartDay,
     hide_income: state.hideIncome,
     default_allowance: state.defaultAllowance,
-    default_allowance_on: state.defaultAllowanceOn,
     monthly_budgets: state.monthlyBudgets,
     categories: CATEGORIES,
   }, { onConflict: 'user_id' });
@@ -1279,9 +1276,9 @@ function renderContent(){
 // ===== HOME TAB =====
 function renderHome(){
   const txs = getFilteredTx();
-  const {income,expense,allowanceExpense} = getTotals(txs);
+  const {income,expense} = getTotals(txs);
   const budget = getBudget();
-  const remaining = budget - allowanceExpense;
+  const remaining = budget - expense;
   const isOver = remaining<0;
   const pct = Math.max(0,Math.min(100,(remaining/budget)*100));
   
@@ -1805,15 +1802,6 @@ function renderCurrentAssets(){
   const totAll = totChk+totSav+totInv;
   
   const envCards = ENVELOPES.filter(e=>checking.some(a=>a.id===e.accountId));
-  // 봉투별 잔액 계산 (해당 봉투로 배정된 거래 합산)
-  function getEnvelopeBal(envId){
-    return TRANSACTIONS
-      .filter(t=>t.envelopeId===envId && t.category!=='envelope_transfer')
-      .reduce((s,t)=>s+t.amount, 0)
-    + TRANSACTIONS
-      .filter(t=>t.envelopeId===envId && t.category==='envelope_transfer')
-      .reduce((s,t)=>s+t.amount, 0);
-  }
   
   return `
 
@@ -1856,37 +1844,12 @@ function renderCurrentAssets(){
       </div>
       ${envCards.length>0?`<div style="border-top:1px solid var(--gray50);padding-top:16px">
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px"><span>📩</span><span style="font-size:var(--fs-caption);font-weight:var(--fw-h1);color:var(--gray400)">봉투</span></div>
-        <div style="display:flex;flex-direction:column;gap:12px">
-          ${envCards.map(e=>{
-            const envBal = getEnvelopeBal(e.id);
-            const pct = e.budget>0 ? Math.round((envBal/e.budget)*100) : 0;
-            const isOver = e.budget>0 && envBal > e.budget;
-            return `<div onclick="openAccountModal(null)" style="cursor:default">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-                <span style="font-size:var(--fs-body);font-weight:var(--fw-h1)">${e.icon} ${e.name}</span>
-                <div style="text-align:right">
-                  <div style="font-size:var(--fs-sub);font-weight:var(--fw-display);color:var(--gray900)">${fmt(envBal)}원</div>
-                  ${e.budget>0?`<div style="font-size:var(--fs-micro);color:var(--gray400)">예산 ${fmt(e.budget)}원</div>`:''}
-                </div>
-              </div>
-              ${e.budget>0?`<div class="prog-bar"><div class="prog-fill" style="width:${Math.min(100,pct)}%;background:${isOver?'#EF4444':e.color}"></div></div>`:''}
-            </div>`;
-          }).join('')}
-          ${(()=>{
-            const accEnvIds = envCards.map(e=>e.id);
-            const unassigned = checking
-              .filter(a=>envCards.some(e=>e.accountId===a.id))
-              .map(a=>{
-                const accBal = bal[a.id]||0;
-                const envTotal = ENVELOPES.filter(e=>e.accountId===a.id).reduce((s,e)=>s+getEnvelopeBal(e.id),0);
-                return accBal - envTotal;
-              }).reduce((s,v)=>s+v,0);
-            if(envCards.length===0) return '';
-            return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--gray100);margin-top:4px">
-              <span style="font-size:var(--fs-caption);font-weight:var(--fw-h1);color:var(--gray400)">📭 미배정</span>
-              <span style="font-size:var(--fs-caption);font-weight:var(--fw-display);color:var(--gray500)">${fmt(unassigned)}원</span>
-            </div>`;
-          })()}
+        <div style="display:flex;flex-direction:column;gap:16px">
+          ${envCards.map(e=>{const pct=Math.round((e.saved/e.target)*100);return`<div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="font-size:var(--fs-caption);font-weight:var(--fw-h1)">${e.icon} ${e.name}</span><span style="font-size:var(--fs-micro);font-weight:var(--fw-h1);color:var(--gray400)">${fmt(e.saved)} / ${fmt(e.target)}</span></div>
+            <div class="prog-bar"><div class="prog-fill" style="width:${Math.min(100,pct)}%;background:${e.color}"></div></div>
+            <div style="text-align:right;font-size:var(--fs-micro);font-weight:var(--fw-h1);color:var(--gray400);margin-top:4px">${pct}% 달성</div>
+          </div>`;}).join('')}
         </div>
       </div>`:''}
     </div>
@@ -2165,18 +2128,6 @@ function renderSettings(){
       <div class="settings-card">
         <div class="settings-row">
           <div class="settings-row-left">
-            ${settingsIcon('check-circle', '#059669')}
-            <div>
-              <div class="settings-row-title">기본값: 용돈 차감</div>
-              <div class="settings-row-sub">새 지출 거래의 용돈 차감 기본값</div>
-            </div>
-          </div>
-          <button class="toggle ${state.defaultAllowanceOn?'on':'off'}" onclick="state.defaultAllowanceOn=!state.defaultAllowanceOn;this.className='toggle '+(state.defaultAllowanceOn?'on':'off');this.innerHTML='<div class=\\'toggle-thumb\\'></div>';saveSettings()">
-            <div class="toggle-thumb"></div>
-          </button>
-        </div>
-        <div class="settings-row">
-          <div class="settings-row-left">
             ${settingsIcon('wallet', '#059669')}
             <div>
               <div class="settings-row-title">기본 용돈</div>
@@ -2290,12 +2241,12 @@ function renderSettings(){
           ${luIcon('chevron-right',18)}
         </div>
         <input type="file" id="csvFileInput" accept=".csv,.xlsx,.xls" style="display:none" onchange="importCSV(this)">
-        <div class="settings-row" onclick="openResetSheet()" style="cursor:pointer">
+        <div class="settings-row" onclick="resetAllData()" style="cursor:pointer">
           <div class="settings-row-left">
             ${settingsIcon('trash', '#EF4444')}
             <div>
               <div class="settings-row-title" style="color:var(--red500)">데이터 초기화</div>
-              <div class="settings-row-sub">선택한 데이터만 삭제</div>
+              <div class="settings-row-sub">전체 거래 내역 삭제</div>
             </div>
           </div>
           ${luIcon('chevron-right',18)}
@@ -2448,48 +2399,190 @@ function updateMonthBudget(el, ym){
 
 function getDaysInMonth(y,m){return new Date(y,m,0).getDate();}
 
-function exportCSV(){
-const headers=['날짜','시간','내용','입금','출금','분류','카테고리','계좌','받는계좌','카드','메모','태그'];
+/* ── 엑셀 내보내기 옵션 팝업 ── */
+function exportCSV() {
+  const today = new Date();
+  const yy = today.getFullYear();
+  const mm = String(today.getMonth() + 1).padStart(2, '0');
 
-// 이체 쌍 매칭: toAccountId 없는 경우 날짜+금액+desc로 입금 거래 찾아서 받는계좌 보완
-const transferMap = {};
-TRANSACTIONS.filter(t=>t.category==='transfer').forEach(t=>{
-  const key = `${t.date}_${Math.abs(t.amount)}_${t.desc}`;
-  if(!transferMap[key]) transferMap[key] = {out:null, in:null};
-  if(t.amount < 0) transferMap[key].out = t;
-  else transferMap[key].in = t;
-});
+  const html = `
+  <div id="exportModal" class="overlay" style="z-index:190" onclick="if(event.target===this)removeModal('exportModal')"></div>
+  <div id="exportSheet" class="sheet" style="z-index:200">
+    <div class="sheet-handle"></div>
+    <h2 style="font-size:var(--fs-h2);font-weight:var(--fw-h1);margin-bottom:20px">엑셀 내보내기</h2>
 
-const rows=TRANSACTIONS.flatMap(t=>{
-  if(t.category==='transfer' && t.amount > 0) return []; // 입금 행 건너뜀
-  const isTransfer = t.category==='transfer';
-  // toAccountId 없으면 쌍에서 찾기
-  let toAccId = t.toAccountId;
-  if(isTransfer && !toAccId){
-    const key = `${t.date}_${Math.abs(t.amount)}_${t.desc}`;
-    const pair = transferMap[key];
-    if(pair?.in) toAccId = pair.in.accountId;
+    <div style="margin-bottom:20px">
+      <div style="font-size:var(--fs-caption);font-weight:var(--fw-h1);color:var(--gray500);margin-bottom:10px">기간 선택</div>
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <button id="expRange_month" onclick="setExportRange('month')"
+          style="flex:1;padding:10px;border-radius:12px;border:2px solid var(--indigo500);background:var(--indigo50);color:var(--indigo600);font-size:var(--fs-caption);font-weight:var(--fw-h1);cursor:pointer;font-family:var(--font)">이번 달</button>
+        <button id="expRange_all" onclick="setExportRange('all')"
+          style="flex:1;padding:10px;border-radius:12px;border:2px solid var(--gray200);background:white;color:var(--gray600);font-size:var(--fs-caption);font-weight:var(--fw-h1);cursor:pointer;font-family:var(--font)">전체</button>
+        <button id="expRange_custom" onclick="setExportRange('custom')"
+          style="flex:1;padding:10px;border-radius:12px;border:2px solid var(--gray200);background:white;color:var(--gray600);font-size:var(--fs-caption);font-weight:var(--fw-h1);cursor:pointer;font-family:var(--font)">직접 입력</button>
+      </div>
+      <div id="expCustomRange" style="display:none;gap:8px;align-items:center">
+        <input type="month" id="expFrom" value="${yy}-${mm}"
+          style="flex:1;padding:10px;border-radius:10px;border:1.5px solid var(--gray200);font-size:var(--fs-caption);font-family:var(--font)">
+        <span style="color:var(--gray400)">~</span>
+        <input type="month" id="expTo" value="${yy}-${mm}"
+          style="flex:1;padding:10px;border-radius:10px;border:1.5px solid var(--gray200);font-size:var(--fs-caption);font-family:var(--font)">
+      </div>
+    </div>
+
+    <div style="background:var(--gray50);border-radius:16px;padding:16px;margin-bottom:24px;display:flex;flex-direction:column;gap:14px">
+      <label style="display:flex;align-items:center;gap:12px;cursor:pointer">
+        <input type="checkbox" id="expOptSheets" checked style="width:18px;height:18px;accent-color:var(--indigo500)">
+        <div>
+          <div style="font-size:var(--fs-caption);font-weight:var(--fw-h1);color:var(--gray800)">월별 시트 자동 분리</div>
+          <div style="font-size:var(--fs-micro);color:var(--gray400);margin-top:2px">1월 시트, 2월 시트... 로 분리돼요</div>
+        </div>
+      </label>
+      <label style="display:flex;align-items:center;gap:12px;cursor:pointer">
+        <input type="checkbox" id="expOptSummary" checked style="width:18px;height:18px;accent-color:var(--indigo500)">
+        <div>
+          <div style="font-size:var(--fs-caption);font-weight:var(--fw-h1);color:var(--gray800)">카테고리별 요약 시트 추가</div>
+          <div style="font-size:var(--fs-micro);color:var(--gray400);margin-top:2px">마지막 시트에 카테고리별 합계가 추가돼요</div>
+        </div>
+      </label>
+    </div>
+
+    <button onclick="doExportCSV()" style="width:100%;padding:14px;background:var(--indigo500);color:white;border:none;border-radius:14px;font-size:var(--fs-sub);font-weight:var(--fw-h1);cursor:pointer;font-family:var(--font)">다운로드</button>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+  window._exportRange = 'month';
+}
+
+function setExportRange(range) {
+  window._exportRange = range;
+  ['month','all','custom'].forEach(r => {
+    const btn = document.getElementById('expRange_' + r);
+    if (!btn) return;
+    const active = r === range;
+    btn.style.borderColor = active ? 'var(--indigo500)' : 'var(--gray200)';
+    btn.style.background = active ? 'var(--indigo50)' : 'white';
+    btn.style.color = active ? 'var(--indigo600)' : 'var(--gray600)';
+  });
+  const custom = document.getElementById('expCustomRange');
+  if (custom) custom.style.display = range === 'custom' ? 'flex' : 'none';
+}
+
+function doExportCSV() {
+  const range = window._exportRange || 'month';
+  const optSheets = document.getElementById('expOptSheets')?.checked;
+  const optSummary = document.getElementById('expOptSummary')?.checked;
+
+  // 기간 필터
+  let txs = [...TRANSACTIONS].sort((a, b) => (a.date + (a.time||'')).localeCompare(b.date + (b.time||'')));
+  if (range === 'month') {
+    const ym = `${state.year}-${String(state.month).padStart(2,'0')}`;
+    txs = txs.filter(t => t.date.startsWith(ym));
+  } else if (range === 'custom') {
+    const from = document.getElementById('expFrom')?.value;
+    const to   = document.getElementById('expTo')?.value;
+    if (from) txs = txs.filter(t => t.date >= from.replace('-','') + '01' || t.date >= from + '-01');
+    if (to)   txs = txs.filter(t => t.date <= to + '-31');
+    // 더 정확하게: YYYY-MM 비교
+    if (from) txs = txs.filter(t => t.date.substring(0,7) >= from);
+    if (to)   txs = txs.filter(t => t.date.substring(0,7) <= to);
   }
-  return [[
-    t.date, t.time || '', t.desc,
-    isIncomeTx(t) ? t.amount : '',
-    (isExpenseTx(t) || isTransfer) ? Math.abs(t.amount) : '',
-    isIncomeTx(t)?'수입': isTransfer?'이체':'지출',
-    getcat(t.category)?.name||t.category,
-    getacc(t.accountId)?.name||t.accountId,
-    toAccId ? getacc(toAccId)?.name||'' : '',
-    t.isCard?'카드':'현금',
-    t.memo||'',
-    (t.tags||[]).join('|')
-  ]];
-});
-  const csv=[headers,...rows].map(r=>r.map(c=>`"${c}"`).join(',')).join('\n');
-  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');
-  a.href=url;a.download=`가계부_${state.year}${String(state.month).padStart(2,'0')}.csv`;a.click();
-  URL.revokeObjectURL(url);
-  showToast('CSV 파일이 다운로드되었어요!');
+
+  // 이체 쌍 매칭
+  const transferMap = {};
+  txs.filter(t => t.category === 'transfer').forEach(t => {
+    const key = `${t.date}_${Math.abs(t.amount)}_${t.desc}`;
+    if (!transferMap[key]) transferMap[key] = { out: null, in: null };
+    if (t.amount < 0) transferMap[key].out = t;
+    else transferMap[key].in = t;
+  });
+
+  const headers = ['날짜','시간','내용','입금','출금','분류','카테고리','계좌','받는계좌','카드','메모','태그'];
+
+  function txToRow(t) {
+    if (t.category === 'transfer' && t.amount > 0) return null;
+    const isTransfer = t.category === 'transfer';
+    let toAccId = t.toAccountId;
+    if (isTransfer && !toAccId) {
+      const key = `${t.date}_${Math.abs(t.amount)}_${t.desc}`;
+      const pair = transferMap[key];
+      if (pair?.in) toAccId = pair.in.accountId;
+    }
+    return [
+      t.date, t.time || '', t.desc,
+      isIncomeTx(t) ? t.amount : '',
+      (isExpenseTx(t) || isTransfer) ? Math.abs(t.amount) : '',
+      isIncomeTx(t) ? '수입' : isTransfer ? '이체' : '지출',
+      getcat(t.category)?.name || t.category,
+      getacc(t.accountId)?.name || t.accountId,
+      toAccId ? getacc(toAccId)?.name || '' : '',
+      t.isCard ? '카드' : '현금',
+      t.memo || '',
+      (t.tags || []).join('|')
+    ];
+  }
+
+  // XLSX 라이브러리 로드 후 생성
+  function buildAndDownload() {
+    const XLSX = window.XLSX;
+
+    // 월별 그룹핑
+    const monthGroups = {};
+    txs.forEach(t => {
+      const ym = t.date.substring(0, 7); // "YYYY-MM"
+      if (!monthGroups[ym]) monthGroups[ym] = [];
+      monthGroups[ym].push(t);
+    });
+
+    const wb = XLSX.utils.book_new();
+
+    if (optSheets && Object.keys(monthGroups).length > 1) {
+      // 월별 시트 분리
+      Object.entries(monthGroups).sort().forEach(([ym, mTxs]) => {
+        const rows = mTxs.map(txToRow).filter(Boolean);
+        const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+        const sheetName = ym.replace('-', '년 ') + '월';
+        XLSX.utils.book_append_sheet(wb, ws, sheetName);
+      });
+    } else {
+      // 단일 시트
+      const rows = txs.map(txToRow).filter(Boolean);
+      const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+      XLSX.utils.book_append_sheet(wb, ws, '거래내역');
+    }
+
+    // 카테고리 요약 시트
+    if (optSummary) {
+      const catSummary = {};
+      txs.filter(t => t.category !== 'transfer').forEach(t => {
+        const catName = getcat(t.category)?.name || t.category;
+        if (!catSummary[catName]) catSummary[catName] = { income: 0, expense: 0 };
+        if (t.amount > 0) catSummary[catName].income += t.amount;
+        else catSummary[catName].expense += Math.abs(t.amount);
+      });
+      const sumRows = [
+        ['카테고리', '수입 합계', '지출 합계'],
+        ...Object.entries(catSummary).map(([name, v]) => [name, v.income || '', v.expense || ''])
+      ];
+      const wsSummary = XLSX.utils.aoa_to_sheet(sumRows);
+      XLSX.utils.book_append_sheet(wb, wsSummary, '카테고리 요약');
+    }
+
+    const fname = range === 'month'
+      ? `가계부_${state.year}년${String(state.month).padStart(2,'0')}월.xlsx`
+      : `가계부_전체.xlsx`;
+    XLSX.writeFile(wb, fname);
+    removeModal('exportModal');
+    showToast('파일이 다운로드됐어요! 📊');
+  }
+
+  if (!window.XLSX) {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    s.onload = buildAndDownload;
+    document.head.appendChild(s);
+  } else {
+    buildAndDownload();
+  }
 }
 
 
@@ -2507,7 +2600,7 @@ function importCSV(input){
     } else { readXLSX(file); }
   } else {
     const reader = new FileReader();
-    reader.onload = e => parseAndImport(e.target.result);
+    reader.onload = e => showImportPreview(e.target.result);
     reader.readAsText(file, 'UTF-8');
   }
 }
@@ -2518,9 +2611,223 @@ function readXLSX(file){
     const wb = XLSX.read(e.target.result, {type:'array'});
     const ws = wb.Sheets[wb.SheetNames[0]];
     const csv = XLSX.utils.sheet_to_csv(ws);
-    parseAndImport(csv);
+    showImportPreview(csv);
   };
   reader.readAsArrayBuffer(file);
+}
+
+/* ── 미리보기 + 열 매핑 팝업 ── */
+function showImportPreview(text) {
+  text = text.replace(/^\uFEFF/, '');
+  const lines = text.trim().split('\n').map(l => l.trim()).filter(Boolean);
+  if(lines.length < 2){ showToast('데이터가 없어요'); return; }
+
+  // CSV 파싱 헬퍼
+  function parseLine(line) {
+    const cells = []; let cur = '', inQ = false;
+    for(let i = 0; i < line.length; i++){
+      const c = line[i];
+      if(c==='"'){ inQ=!inQ; }
+      else if(c===','&&!inQ){ cells.push(cur.trim()); cur=''; }
+      else { cur+=c; }
+    }
+    cells.push(cur.trim());
+    return cells.map(c => c.replace(/^"|"$/g,'').trim());
+  }
+
+  const headers = parseLine(lines[0]);
+  const previewRows = lines.slice(1, 6).map(parseLine); // 최대 5행 미리보기
+
+  // 자동 매핑 추정
+  function guessCol(keywords) {
+    const idx = headers.findIndex(h => keywords.some(k => h.toLowerCase().includes(k)));
+    return idx >= 0 ? idx : -1;
+  }
+  const guess = {
+    date:    guessCol(['날짜','date','거래일']),
+    time:    guessCol(['시간','time']),
+    desc:    guessCol(['내용','내역','desc','적요','거래내용','가맹점']),
+    amount:  guessCol(['금액','amount']),
+    income:  guessCol(['입금','income','수입']),
+    expense: guessCol(['출금','expense','지출']),
+    account: guessCol(['계좌','account']),
+    memo:    guessCol(['메모','memo','note','비고']),
+  };
+
+  const optNone = `<option value="-1">(없음)</option>`;
+  function colSelect(id, guessIdx) {
+    return `<select id="map_${id}" style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid var(--gray200);font-size:var(--fs-micro);font-family:var(--font);color:var(--gray800);background:white">
+      ${optNone}
+      ${headers.map((h, i) => `<option value="${i}" ${i === guessIdx ? 'selected' : ''}>${h}</option>`).join('')}
+    </select>`;
+  }
+
+  // 미리보기 테이블
+  const thStyle = 'padding:6px 8px;background:var(--gray100);font-size:var(--fs-micro);font-weight:var(--fw-h1);color:var(--gray500);white-space:nowrap;border-bottom:1px solid var(--gray200)';
+  const tdStyle = 'padding:6px 8px;font-size:var(--fs-micro);color:var(--gray700);white-space:nowrap;max-width:100px;overflow:hidden;text-overflow:ellipsis;border-bottom:1px solid var(--gray100)';
+  const tableHtml = `
+    <div style="overflow-x:auto;border-radius:10px;border:1px solid var(--gray200);margin-bottom:16px">
+      <table style="border-collapse:collapse;width:100%;min-width:max-content">
+        <thead><tr>${headers.map(h=>`<th style="${thStyle}">${h}</th>`).join('')}</tr></thead>
+        <tbody>${previewRows.map(row=>`<tr>${headers.map((_,i)=>`<td style="${tdStyle}">${row[i]||''}</td>`).join('')}</tr>`).join('')}</tbody>
+      </table>
+    </div>`;
+
+  const html = `
+  <div id="importPreviewModal" class="overlay" style="z-index:190" onclick="if(event.target===this)removeModal('importPreviewModal')"></div>
+  <div id="importPreviewSheet" class="sheet" style="z-index:200;max-height:92vh;overflow-y:auto">
+    <div class="sheet-handle"></div>
+    <h2 style="font-size:var(--fs-h2);font-weight:var(--fw-h1);margin-bottom:4px">가져오기 미리보기</h2>
+    <p style="font-size:var(--fs-caption);color:var(--gray400);margin-bottom:16px">데이터 앞 5행을 미리 보여드려요</p>
+    ${tableHtml}
+
+    <div style="font-size:var(--fs-caption);font-weight:var(--fw-h1);color:var(--gray700);margin-bottom:12px">열 매핑 확인</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px">
+      <div>
+        <div style="font-size:var(--fs-micro);color:var(--gray500);margin-bottom:4px">날짜 <span style="color:var(--red500)">*필수</span></div>
+        ${colSelect('date', guess.date)}
+      </div>
+      <div>
+        <div style="font-size:var(--fs-micro);color:var(--gray500);margin-bottom:4px">시간</div>
+        ${colSelect('time', guess.time)}
+      </div>
+      <div>
+        <div style="font-size:var(--fs-micro);color:var(--gray500);margin-bottom:4px">내용 (거래처)</div>
+        ${colSelect('desc', guess.desc)}
+      </div>
+      <div>
+        <div style="font-size:var(--fs-micro);color:var(--gray500);margin-bottom:4px">금액 (±통합)</div>
+        ${colSelect('amount', guess.amount)}
+      </div>
+      <div>
+        <div style="font-size:var(--fs-micro);color:var(--gray500);margin-bottom:4px">입금액 (분리형)</div>
+        ${colSelect('income', guess.income)}
+      </div>
+      <div>
+        <div style="font-size:var(--fs-micro);color:var(--gray500);margin-bottom:4px">출금액 (분리형)</div>
+        ${colSelect('expense', guess.expense)}
+      </div>
+      <div>
+        <div style="font-size:var(--fs-micro);color:var(--gray500);margin-bottom:4px">계좌</div>
+        ${colSelect('account', guess.account)}
+      </div>
+      <div>
+        <div style="font-size:var(--fs-micro);color:var(--gray500);margin-bottom:4px">메모</div>
+        ${colSelect('memo', guess.memo)}
+      </div>
+    </div>
+
+    <button onclick="doImportWithMapping()" style="width:100%;padding:14px;background:var(--indigo500);color:white;border:none;border-radius:14px;font-size:var(--fs-sub);font-weight:var(--fw-h1);cursor:pointer;font-family:var(--font)">이 설정으로 가져오기</button>
+  </div>`;
+
+  document.body.insertAdjacentHTML('beforeend', html);
+  window._importRawLines = lines;
+  window._importParseLine = parseLine;
+}
+
+function doImportWithMapping() {
+  const lines = window._importRawLines;
+  const parseLine = window._importParseLine;
+  if (!lines) return;
+
+  function getMap(id) { return parseInt(document.getElementById('map_' + id)?.value ?? '-1'); }
+  const idx = {
+    date:    getMap('date'),
+    time:    getMap('time'),
+    desc:    getMap('desc'),
+    amount:  getMap('amount'),
+    income:  getMap('income'),
+    expense: getMap('expense'),
+    accountId: getMap('account'),
+    memo:    getMap('memo'),
+  };
+
+  if (idx.date < 0) { showToast('날짜 열을 선택해주세요'); return; }
+  if (idx.amount < 0 && idx.income < 0 && idx.expense < 0) { showToast('금액 열을 하나 이상 선택해주세요'); return; }
+
+  removeModal('importPreviewModal');
+
+  // 기존 parseAndImport 로직 재사용 (직접 파싱)
+  const parsed = [];
+  lines.slice(1).forEach(line => {
+    const cells = parseLine(line);
+    const get = i => i >= 0 ? (cells[i] || '') : '';
+    const dateRaw = get(idx.date);
+    const date = dateRaw.replace(/\./g,'-').replace(/(\d{4})-(\d{1,2})-(\d{1,2}).*/, (_, y, m, d) =>
+      `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`);
+    const time = get(idx.time).substring(0, 5) || '00:00';
+    const desc = get(idx.desc) || '가져온 거래';
+    let amount;
+    if (idx.income >= 0 || idx.expense >= 0) {
+      const inc = parseInt(get(idx.income).replace(/,/g,''), 10) || 0;
+      const exp = parseInt(get(idx.expense).replace(/,/g,''), 10) || 0;
+      amount = inc > 0 ? inc : -exp;
+    } else {
+      amount = parseInt(get(idx.amount).replace(/,/g,''), 10);
+    }
+    const memo = get(idx.memo);
+    if (!date || isNaN(amount) || amount === 0) return;
+    parsed.push({ date, time, desc, amount, catName: '', accName: '', memo, tags: [], typeName: '', toAccName: '' });
+  });
+
+  if (parsed.length === 0) { showToast('가져올 수 있는 데이터가 없어요'); return; }
+
+  // 중복 체크 → 기존 _applyImport 흐름 연결
+  const dupKey = t => `${t.date}_${t.amount}`;
+  const existingKeys = new Set(TRANSACTIONS.map(dupKey));
+  const duplicates = parsed.filter(r => existingKeys.has(dupKey(r)));
+  const clean = parsed.filter(r => !existingKeys.has(dupKey(r)));
+
+  if (duplicates.length === 0) {
+    _applyImport(clean);
+    return;
+  }
+
+  // 중복 확인창 (기존과 동일)
+  removeModal('dupModal');
+  const rows = duplicates.map((r, i) => `
+    <label style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--gray100);cursor:pointer">
+      <input type="checkbox" data-i="${i}" style="width:18px;height:18px;accent-color:var(--indigo600);flex-shrink:0">
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+          <span style="font-size:var(--fs-caption);font-weight:var(--fw-h1);color:var(--gray700)">${r.date}</span>
+          <span style="font-size:var(--fs-caption);font-weight:var(--fw-display);color:${r.amount<0?'var(--red500)':'var(--mint500)'}">${r.amount<0?'-':''}${fmt(Math.abs(r.amount))}원</span>
+        </div>
+        <div style="font-size:var(--fs-micro);color:var(--gray400);margin-top:2px">${r.desc}</div>
+      </div>
+    </label>`).join('');
+
+  const dupHtml = `
+  <div id="dupModal" class="overlay" style="z-index:210" onclick="if(event.target===this)removeModal('dupModal')"></div>
+  <div id="dupSheet" class="sheet" style="z-index:220;max-height:80vh">
+    <div class="sheet-handle"></div>
+    <h2 style="font-size:var(--fs-h2);font-weight:var(--fw-h1);margin-bottom:6px">중복 의심 ${duplicates.length}건</h2>
+    <div style="font-size:var(--fs-micro);color:var(--gray400);margin-bottom:12px">날짜·금액이 같은 거래예요. 가져올 항목을 체크하세요.</div>
+    <div style="overflow-y:auto;max-height:42vh">${rows}</div>
+    <div style="display:flex;gap:8px;padding-top:12px">
+      <button onclick="document.querySelectorAll('#dupSheet input').forEach(c=>c.checked=true)"
+        style="flex:1;padding:12px;border-radius:12px;border:1px solid var(--gray200);background:#fff;font-size:var(--fs-caption);font-weight:var(--fw-h1);color:var(--gray600);cursor:pointer;font-family:var(--font)">전체 선택</button>
+      <button onclick="document.querySelectorAll('#dupSheet input').forEach(c=>c.checked=false)"
+        style="flex:1;padding:12px;border-radius:12px;border:1px solid var(--gray200);background:#fff;font-size:var(--fs-caption);font-weight:var(--fw-h1);color:var(--gray600);cursor:pointer;font-family:var(--font)">전체 해제</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;padding-top:8px">
+      <button onclick="_confirmImport(false)" class="btn-secondary" style="padding:16px">중복 건너뛰기</button>
+      <button onclick="_confirmImport(true)" class="btn-primary" style="padding:16px">선택항목 포함</button>
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend', dupHtml);
+
+  window._pendingImport = { clean, duplicates };
+  window._confirmImport = function(includeChecked) {
+    let toAdd = [...clean];
+    if (includeChecked) {
+      const checked = [...document.querySelectorAll('#dupSheet input[type=checkbox]:checked')]
+        .map(c => duplicates[parseInt(c.dataset.i)]);
+      toAdd = [...toAdd, ...checked];
+    }
+    removeModal('dupModal');
+    _applyImport(toAdd);
+  };
 }
 
 function parseAndImport(text){
@@ -2674,118 +2981,18 @@ function _applyImport(rows){
 }
 
 
-function openResetSheet(){
-  const overlay = document.createElement('div');
-  overlay.id = 'resetSheetOverlay';
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;display:flex;align-items:flex-end;justify-content:center';
-  overlay.onclick = function(e){ if(e.target===overlay) closeResetSheet(); };
+function resetAllData(){
+  if(confirm('정말 모든 거래 내역을 삭제할까요?\n이 작업은 되돌릴 수 없어요!')) {
+    TRANSACTIONS=[];
+    renderContent();
+    showToast('데이터가 초기화되었어요');
 
-  const rows = [
-    {id:'reset_transactions',  label:'거래내역', desc:'기록된 모든 수입/지출/이체 내역'},
-    {id:'reset_accounts',      label:'계좌',     desc:'등록된 계좌 목록'},
-    {id:'reset_cards',         label:'카드',     desc:'등록된 카드 목록'},
-    {id:'reset_installments',  label:'할부',     desc:'진행 중인 할부 내역'},
-    {id:'reset_fixed_expenses',label:'고정지출', desc:'매월 반복 고정지출'},
-    {id:'reset_fixed_transfers',label:'고정이체',desc:'매월 반복 고정이체'},
-  ];
-
-  let rowsHtml = '';
-  for(let i=0;i<rows.length;i++){
-    const r = rows[i];
-    rowsHtml += '<label style="display:flex;align-items:center;gap:14px;padding:14px 16px;border:1.5px solid var(--gray200);border-radius:12px;cursor:pointer" onclick="toggleResetItem(event,\'' + r.id + '\')">'
-      + '<div id="' + r.id + '_box" style="width:22px;height:22px;border-radius:6px;border:2px solid var(--gray300);background:#fff;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .15s"></div>'
-      + '<div>'
-      + '<div style="font-size:var(--fs-body);font-weight:600;color:var(--gray800)">' + r.label + '</div>'
-      + '<div style="font-size:var(--fs-caption);color:var(--gray400)">' + r.desc + '</div>'
-      + '</div></label>';
+    // Supabase에서도 삭제
+    supabaseClient.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+      supabaseClient.from('transactions').delete().eq('user_id', user.id);
+    });
   }
-
-  overlay.innerHTML = '<div style="background:#fff;width:100%;max-width:600px;border-radius:20px 20px 0 0;padding:24px 20px 40px;animation:slideUp .25s ease">'
-    + '<div style="width:40px;height:4px;background:var(--gray200);border-radius:2px;margin:0 auto 20px"></div>'
-    + '<div style="font-size:var(--fs-h2);font-weight:700;color:var(--red500);margin-bottom:6px">데이터 초기화</div>'
-    + '<div style="font-size:var(--fs-sub);color:var(--gray500);margin-bottom:20px">삭제할 데이터를 선택해주세요. 이 작업은 되돌릴 수 없어요.</div>'
-    + '<div style="display:flex;flex-direction:column;gap:12px;margin-bottom:28px">' + rowsHtml + '</div>'
-    + '<button onclick="confirmReset()" style="width:100%;padding:16px;background:var(--red500);color:#fff;border:none;border-radius:12px;font-size:var(--fs-body);font-weight:700;cursor:pointer">선택한 데이터 삭제</button>'
-    + '</div>';
-
-  document.body.appendChild(overlay);
-}
-
-
-function toggleResetItem(e, id){
-  e.preventDefault();
-  const box = document.getElementById(id+'_box');
-  const checked = box.dataset.checked === '1';
-  if(!checked){
-    box.dataset.checked = '1';
-    box.style.background = 'var(--red500)';
-    box.style.borderColor = 'var(--red500)';
-    box.innerHTML = `<svg width="13" height="10" viewBox="0 0 13 10" fill="none"><path d="M1.5 5L5 8.5L11.5 1.5" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-    box.closest('label').style.borderColor = 'var(--red400)';
-    box.closest('label').style.background = '#FFF5F5';
-  } else {
-    box.dataset.checked = '0';
-    box.style.background = '#fff';
-    box.style.borderColor = 'var(--gray300)';
-    box.innerHTML = '';
-    box.closest('label').style.borderColor = 'var(--gray200)';
-    box.closest('label').style.background = '#fff';
-  }
-}
-
-function closeResetSheet(){
-  const el = document.getElementById('resetSheetOverlay');
-  if(el) el.remove();
-}
-
-async function confirmReset(){
-  const items = ['transactions','accounts','cards','installments','fixed_expenses','fixed_transfers'];
-  const selected = items.filter(k => {
-    const box = document.getElementById('reset_'+k+'_box');
-    return box && box.dataset.checked === '1';
-  });
-
-  if(selected.length === 0){
-    showToast('삭제할 항목을 선택해주세요');
-    return;
-  }
-
-  const labels = {'transactions':'거래내역','accounts':'계좌','cards':'카드','installments':'할부','fixed_expenses':'고정지출','fixed_transfers':'고정이체'};
-  const names = selected.map(k=>labels[k]).join(', ');
-
-  if(!confirm(`[${names}]을(를) 정말 삭제할까요?\n이 작업은 되돌릴 수 없어요!`)) return;
-
-  closeResetSheet();
-
-  // 로컬 데이터 초기화
-  if(selected.includes('transactions'))    TRANSACTIONS = [];
-  if(selected.includes('accounts'))        ACCOUNTS = [];
-  if(selected.includes('cards'))           CARDS = [];
-  if(selected.includes('installments'))    INSTALLMENTS = [];
-  if(selected.includes('fixed_expenses'))  FIXED_EXPENSES = [];
-  if(selected.includes('fixed_transfers')) FIXED_TRANSFERS = [];
-
-  renderContent();
-
-  // Supabase 삭제
-  const { data: { user } } = await supabaseClient.auth.getUser();
-  if(user){
-    const tableMap = {
-      'transactions':'transactions',
-      'accounts':'accounts',
-      'cards':'cards',
-      'installments':'installments',
-      'fixed_expenses':'fixed_expenses',
-      'fixed_transfers':'fixed_transfers'
-    };
-    for(const key of selected){
-      const table = tableMap[key];
-      const { error } = await supabaseClient.from(table).delete().eq('user_id', user.id);
-      if(error) console.error(`${table} 삭제 오류:`, error);
-    }
-  }
-
-  showToast(`${names} 데이터가 삭제되었어요`);
 }
 
 // ===== SUBVIEW (Settings sub pages) =====
@@ -2866,10 +3073,21 @@ function renderCardList(){
         }).join('')
       : `<div style="font-size:var(--fs-caption);color:var(--gray300);font-weight:var(--fw-h1);text-align:center;padding:8px 0">할부 없음</div>`;
 
-    return `<div class="card" style="margin-bottom:12px" id="cardCard_${card.id}">
+    return `<div class="card" style="margin-bottom:12px;transition:opacity .15s" id="cardCard_${card.id}"
+      draggable="true"
+      ondragstart="cardDragStart(event,'${card.id}')"
+      ondragover="cardDragOver(event,'${card.id}')"
+      ondragleave="cardDragLeave(event)"
+      ondrop="cardDrop(event,'${card.id}')"
+      ondragend="cardDragEnd(event)">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
         <div style="display:flex;align-items:center;gap:14px">
-          <div style="width:44px;height:44px;border-radius:16px;background:#FFF7ED;color:#F59E0B;display:flex;align-items:center;justify-content:center;flex-shrink:0">${luIcon('receipt-text',20)}</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="color:var(--gray300);cursor:grab;padding:4px 2px;touch-action:none" title="드래그하여 순서 변경">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="5" r="1" fill="currentColor"/><circle cx="9" cy="12" r="1" fill="currentColor"/><circle cx="9" cy="19" r="1" fill="currentColor"/><circle cx="15" cy="5" r="1" fill="currentColor"/><circle cx="15" cy="12" r="1" fill="currentColor"/><circle cx="15" cy="19" r="1" fill="currentColor"/></svg>
+            </div>
+            <div style="width:44px;height:44px;border-radius:16px;background:#FFF7ED;color:#F59E0B;display:flex;align-items:center;justify-content:center;flex-shrink:0">${luIcon('receipt-text',20)}</div>
+          </div>
           <div>
             <div style="font-size:var(--fs-sub);font-weight:var(--fw-h1);color:var(--gray800)">${card.name}</div>
             <div style="font-size:var(--fs-caption);color:var(--gray400);margin-top:2px">
@@ -3152,6 +3370,24 @@ function confirmDeleteCat(catId) {
   const cat = CATEGORIES.find(c => c.id === catId);
   if (!cat) return;
   const usedCount = TRANSACTIONS.filter(t => t.category === catId).length;
+  const fixedCount = FIXED_EXPENSES.filter(f => f.category === catId).length;
+  const totalCount = usedCount + fixedCount;
+
+  // 이동 가능한 카테고리 목록 (같은 type, 삭제 대상 제외)
+  const moveCandidates = CATEGORIES.filter(c => c.id !== catId && c.type === cat.type);
+
+  const moveSelectHtml = totalCount > 0 ? `
+    <div style="background:#FFF7ED;border-radius:16px;padding:14px 16px;margin-bottom:20px">
+      <div style="font-size:var(--fs-caption);font-weight:var(--fw-h1);color:#D97706;margin-bottom:8px">⚠️ ${totalCount}건의 내역이 이 카테고리를 사용 중이에요</div>
+      <div style="font-size:var(--fs-caption);color:var(--gray600);margin-bottom:10px">삭제 전에 이동할 카테고리를 선택해주세요.</div>
+      <select id="moveToCatSelect" style="width:100%;padding:10px 12px;border-radius:10px;border:1.5px solid var(--gray200);font-size:var(--fs-caption);font-family:var(--font);background:white;color:var(--gray800)">
+        ${moveCandidates.map(c => `<option value="${c.id}">${c.emoji || ''} ${c.name}</option>`).join('')}
+        <option value="etc">기타 (분류 없음)</option>
+      </select>
+    </div>` : `
+    <div style="background:var(--gray50);border-radius:16px;padding:14px 16px;margin-bottom:20px">
+      <div style="font-size:var(--fs-caption);color:var(--gray500)">이 카테고리를 사용하는 거래 내역이 없어요.</div>
+    </div>`;
 
   const html = `
   <div id="delCatModal" class="overlay" style="z-index:190" onclick="if(event.target===this)removeModal('delCatModal')"></div>
@@ -3161,10 +3397,7 @@ function confirmDeleteCat(catId) {
       <h2 style="font-size:var(--fs-h2);font-weight:var(--fw-h1);margin-bottom:6px">카테고리 삭제</h2>
       <p style="font-size:var(--fs-sub);color:var(--gray500)"><strong style="color:var(--gray800)">${cat.name}</strong> 카테고리를 삭제할까요?</p>
     </div>
-    ${usedCount > 0 ? `<div style="background:#FFF7ED;border-radius:16px;padding:14px 16px;margin-bottom:20px">
-      <div style="font-size:var(--fs-caption);font-weight:var(--fw-h1);color:#D97706;margin-bottom:4px">⚠️ 사용 중인 거래 내역이 있어요</div>
-      <div style="font-size:var(--fs-caption);color:var(--gray600)">${usedCount}건의 거래 내역이 이 카테고리를 사용 중이에요.<br>삭제 시 해당 내역은 '기타'로 변경돼요.</div>
-    </div>` : ''}
+    ${moveSelectHtml}
     <div style="display:flex;flex-direction:column;gap:10px">
       <button onclick="executeDeleteCat('${catId}')" style="width:100%;padding:14px;background:#FEF2F2;color:var(--red500);border:none;border-radius:14px;font-size:var(--fs-sub);font-weight:var(--fw-h1);cursor:pointer;font-family:var(--font)">삭제하기</button>
       <button onclick="removeModal('delCatModal')" style="width:100%;padding:14px;background:var(--gray100);color:var(--gray600);border:none;border-radius:14px;font-size:var(--fs-sub);font-weight:var(--fw-h1);cursor:pointer;font-family:var(--font)">취소</button>
@@ -3176,13 +3409,22 @@ function confirmDeleteCat(catId) {
 function executeDeleteCat(catId) {
   const cat = CATEGORIES.find(c => c.id === catId);
   if (!cat) { removeModal('delCatModal'); return; }
-  // 사용 중인 거래 내역 → 기타로 재배정
-  TRANSACTIONS.forEach(t => { if (t.category === catId) t.category = 'etc'; });
-  FIXED_EXPENSES.forEach(f => { if (f.category === catId) f.category = 'etc'; });
+
+  // 이동할 카테고리 ID (select가 있으면 선택값, 없으면 etc)
+  const sel = document.getElementById('moveToCatSelect');
+  const toId = sel ? sel.value : 'etc';
+
+  TRANSACTIONS.forEach(t => { if (t.category === catId) t.category = toId; });
+  FIXED_EXPENSES.forEach(f => { if (f.category === catId) f.category = toId; });
+
   const idx = CATEGORIES.findIndex(c => c.id === catId);
   if (idx !== -1) CATEGORIES.splice(idx, 1);
+
+  const toCat = CATEGORIES.find(c => c.id === toId);
+  const toName = toCat ? toCat.name : '기타';
+
   removeModal('delCatModal');
-  showToast(`${cat.name} 카테고리가 삭제되었어요`);
+  showToast(`${cat.name} 삭제 완료 · 내역은 '${toName}'으로 이동됐어요`);
   refreshCategorySubview();
   if (state.tab === 'settings') renderContent();
   saveSettings();
@@ -3318,6 +3560,64 @@ function catDrop(e, targetId, type) {
 
   refreshCategorySubview();
   if (state.tab === 'settings') renderContent();
+  saveSettings();
+}
+
+// ===== CARD DRAG & DROP =====
+let _cardDragId = null;
+
+function cardDragStart(e, id) {
+  _cardDragId = id;
+  e.dataTransfer.effectAllowed = 'move';
+  requestAnimationFrame(() => {
+    const el = document.getElementById('cardCard_' + id);
+    if (el) el.style.opacity = '0.4';
+  });
+}
+function cardDragEnd(e) {
+  if (_cardDragId) {
+    const el = document.getElementById('cardCard_' + _cardDragId);
+    if (el) el.style.opacity = '1';
+  }
+  document.querySelectorAll('[id^="cardCard_"]').forEach(el => {
+    el.style.borderTop = '';
+    el.style.borderBottom = '';
+  });
+  _cardDragId = null;
+}
+function cardDragOver(e, targetId) {
+  e.preventDefault();
+  if (_cardDragId === targetId) return;
+  document.querySelectorAll('[id^="cardCard_"]').forEach(el => {
+    el.style.borderTop = '';
+    el.style.borderBottom = '';
+  });
+  const rect = e.currentTarget.getBoundingClientRect();
+  if (e.clientY < rect.top + rect.height / 2) {
+    e.currentTarget.style.borderTop = '2px solid var(--indigo500)';
+  } else {
+    e.currentTarget.style.borderBottom = '2px solid var(--indigo500)';
+  }
+  e.dataTransfer.dropEffect = 'move';
+}
+function cardDragLeave(e) {
+  e.currentTarget.style.borderTop = '';
+  e.currentTarget.style.borderBottom = '';
+}
+function cardDrop(e, targetId) {
+  e.preventDefault();
+  if (!_cardDragId || _cardDragId === targetId) return;
+  const fromIdx = CARDS.findIndex(c => c.id === _cardDragId);
+  const rect = e.currentTarget.getBoundingClientRect();
+  const insertBefore = e.clientY < rect.top + rect.height / 2;
+  let toIdx = CARDS.findIndex(c => c.id === targetId);
+  if (!insertBefore) toIdx++;
+  const [moved] = CARDS.splice(fromIdx, 1);
+  const newIdx = fromIdx < toIdx ? toIdx - 1 : toIdx;
+  CARDS.splice(newIdx, 0, moved);
+  // order 필드 재계산
+  CARDS.forEach((c, i) => { c.order = i; });
+  refreshCardSubview();
   saveSettings();
 }
 
@@ -4417,31 +4717,6 @@ function openAccountModal(accId){
         </div>
       </div>
 
-      <!-- 봉투 관리 (입출금 계좌 수정 시만 표시) -->
-      ${isEdit && (acc?.type||'checking')==='checking' ? `
-      <div style="border-top:1px solid var(--gray100);padding-top:20px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-          <span style="font-size:var(--fs-caption);font-weight:var(--fw-h1);color:var(--gray400)">📩 봉투 관리</span>
-          <button onclick="openEnvelopeTransferModal('${accId}')" style="font-size:var(--fs-micro);font-weight:var(--fw-h1);color:var(--indigo600);background:none;border:none;cursor:pointer;font-family:var(--font)">봉투 간 이동</button>
-        </div>
-        <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px">
-          ${ENVELOPES.filter(e=>e.accountId===accId).map(e=>`
-            <div onclick="openEnvelopeModal('${accId}','${e.id}')" style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--gray50);border-radius:14px;cursor:pointer">
-              <div style="display:flex;align-items:center;gap:10px">
-                <span style="font-size:20px">${e.icon}</span>
-                <span style="font-size:var(--fs-body);font-weight:var(--fw-h1);color:var(--gray800)">${e.name}</span>
-              </div>
-              <div style="display:flex;align-items:center;gap:8px">
-                ${e.budget>0?`<span style="font-size:var(--fs-caption);font-weight:var(--fw-h1);color:var(--gray400)">${fmt(e.budget)}원</span>`:''}
-                <span style="font-size:var(--fs-caption);color:var(--gray300)">›</span>
-              </div>
-            </div>`).join('')}
-        </div>
-        <button onclick="openEnvelopeModal('${accId}')" style="width:100%;padding:12px;background:var(--gray50);border:1.5px dashed var(--gray200);border-radius:14px;font-size:var(--fs-body);font-weight:var(--fw-h1);color:var(--indigo600);cursor:pointer;font-family:var(--font)">
-          + 봉투 추가
-        </button>
-      </div>` : ''}
-
       <div class="btn-row" style="padding-top:4px">
         <button class="btn-secondary" onclick="removeModal('accModal')">취소</button>
         <button class="btn-primary" onclick="saveAccount('${accId||''}')">
@@ -4715,8 +4990,7 @@ function openAddModal(prefill=null){
   } else {
     formData={amount:'',type:'expense',date:todayStr,
       time:new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}),
-      desc:'',category:'',accountId:'',toAccountId:'acc2',memo:'',tags:'',isCard:false,
-      isAllowance: state.defaultAllowanceOn, envelopeId: ''};
+      desc:'',category:'',accountId:'',toAccountId:'acc2',memo:'',tags:'',isCard:false};
     editingId=null;
   }
   state.fabOpen=false;
@@ -4806,27 +5080,6 @@ function showAddModalUI(){
         <label class="form-label">메모</label>
         <textarea class="form-textarea" rows="2" placeholder="추가 메모를 입력하세요" oninput="formData.memo=this.value">${formData.memo}</textarea>
       </div>
-      ${(()=>{
-        const selAcc = ACCOUNTS.find(a=>a.id===formData.accountId);
-        const accEnvs = selAcc?.type==='checking' ? ENVELOPES.filter(e=>e.accountId===formData.accountId) : [];
-        if(accEnvs.length===0) return '';
-        return `<div class="form-group">
-          <label class="form-label">봉투 선택</label>
-          <select class="form-select" onchange="formData.envelopeId=this.value">
-            <option value="">📭 미배정</option>
-            ${accEnvs.map(e=>`<option value="${e.id}" ${formData.envelopeId===e.id?'selected':''}>${e.icon} ${e.name}</option>`).join('')}
-          </select>
-        </div>`;
-      })()}
-      ${formData.type==='expense'?`<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--gray50);border-radius:14px">
-        <div>
-          <div style="font-size:var(--fs-body);font-weight:var(--fw-h1);color:var(--gray800)">용돈 차감</div>
-          <div style="font-size:var(--fs-micro);color:var(--gray400);margin-top:2px">이 거래를 용돈에서 차감해요</div>
-        </div>
-        <button id="allowanceToggleBtn" class="toggle ${formData.isAllowance!==false?'on':'off'}" onclick="formData.isAllowance=!formData.isAllowance;this.className='toggle '+(formData.isAllowance?'on':'off');this.innerHTML='<div class=\\'toggle-thumb\\'></div>'">
-          <div class="toggle-thumb"></div>
-        </button>
-      </div>`:''}
       <div class="btn-row" style="padding-top:4px">
         ${!editingId?`<button class="btn-secondary" onclick="saveTransaction(true)">계속 입력</button>`:''}
         <button class="btn-primary" onclick="saveTransaction(false)">${editingId?'수정 완료':'저장하기'}</button>
@@ -4917,8 +5170,6 @@ const newTx={
     accountId:formData.accountId,
     toAccountId:formData.type==='transfer'?formData.toAccountId:undefined,
     isCard:isCard||formData.isCard,
-    isAllowance: formData.type==='expense' ? (formData.isAllowance!==false) : false,
-    envelopeId: formData.type!=='transfer' ? (formData.envelopeId||null) : null,
     memo:formData.memo,tags
   };
   
@@ -4944,8 +5195,6 @@ const newTx={
       account_id:    newTx.accountId,
       to_account_id: newTx.toAccountId || null,
       is_card:       newTx.isCard || false,
-      is_allowance:  newTx.isAllowance ?? true,
-      envelope_id:   newTx.envelopeId || null,
       memo:          newTx.memo || '',
       tags:          newTx.tags || []
     }, { onConflict: 'id' })
@@ -5018,15 +5267,6 @@ function openDetailSheet(id){
         <div style="font-size:var(--fs-micro);color:var(--indigo400);margin-top:2px">수정·삭제해도 이번 달만 적용돼요</div>
       </div>
     </div>`:''}
-    ${isExpenseTx(t)?`<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--gray50);border-radius:14px;margin-bottom:16px">
-      <div>
-        <div style="font-size:var(--fs-body);font-weight:var(--fw-h1);color:var(--gray800)">용돈 차감</div>
-        <div style="font-size:var(--fs-micro);color:var(--gray400);margin-top:2px">이 거래를 용돈에서 차감해요</div>
-      </div>
-      <button class="toggle ${t.isAllowance!==false?'on':'off'}" onclick="toggleTxAllowance('${t.id}',this)">
-        <div class="toggle-thumb"></div>
-      </button>
-    </div>`:''}
     <div class="btn-row">
       <button class="btn-secondary" onclick="editTx('${t.id}')">수정</button>
       <button style="flex:1;padding:16px;background:#FEF2F2;color:var(--red500);border:none;border-radius:16px;font-size:var(--fs-body);font-weight:var(--fw-h1);cursor:pointer" onclick="deleteTx('${t.id}')">삭제</button>
@@ -5047,29 +5287,12 @@ function editTx(id){
     date:t.date,time:t.time||'',
     desc:t.desc,category:t.category,
     accountId:t.accountId,toAccountId:t.toAccountId||'acc2',
-    memo:t.memo||'',tags:(t.tags||[]).join(' '),isCard:t.isCard,
-    isAllowance: t.isAllowance!==false,
-    envelopeId: t.envelopeId||''
+    memo:t.memo||'',tags:(t.tags||[]).join(' '),isCard:t.isCard
   });
 }
 
 // 수동 삭제된 자동생성 고정비 거래 키 (재생성 방지)
 const deletedFxKeys = new Set(JSON.parse(localStorage.getItem('deletedFxKeys') || '[]'));
-
-function toggleTxAllowance(id, btn){
-  const t = TRANSACTIONS.find(tx=>tx.id===id);
-  if(!t) return;
-  t.isAllowance = t.isAllowance===false ? true : false;
-  btn.className = 'toggle ' + (t.isAllowance?'on':'off');
-  btn.innerHTML = '<div class="toggle-thumb"></div>';
-  renderHeader(); // 남은 용돈 즉시 반영
-  // Supabase 업데이트
-  supabaseClient.auth.getUser().then(({data:{user}})=>{
-    if(!user) return;
-    supabaseClient.from('transactions').update({is_allowance: t.isAllowance}).eq('id',id)
-      .then(({error})=>{ if(error) showToast('⚠️ 저장 실패: '+error.message); });
-  });
-}
 
 function deleteTx(id){
   if(!confirm('정말 삭제할까요?')) return;
@@ -5319,9 +5542,7 @@ async function loadAllFromSupabase() {
     id: t.id, date: t.date, time: t.time || '',
     desc: t.description, amount: t.amount, category: t.category,
     accountId: t.account_id, toAccountId: t.to_account_id,
-    isCard: t.is_card, isAllowance: t.is_allowance ?? true,
-    envelopeId: t.envelope_id || null,
-    memo: t.memo || '', tags: t.tags || [],
+    isCard: t.is_card, memo: t.memo || '', tags: t.tags || [],
 autoFixed: t.auto_fixed || false, fxSourceId: t.fx_source_id || null, ftSourceId: t.ft_source_id || null
   }));
 
@@ -5366,14 +5587,6 @@ autoFixed: t.auto_fixed || false, fxSourceId: t.fx_source_id || null, ftSourceId
     id: f.id, name: f.name, amount: f.amount, day: f.day,
     fromAccountId: f.from_account_id, toAccountId: f.to_account_id
   }));
-
-  // 봉투
-  const { data: envData } = await supabaseClient
-    .from('envelopes').select('*').eq('user_id', user.id).order('order_num');
-  if (envData) ENVELOPES = envData.map(e => ({
-    id: e.id, accountId: e.account_id, name: e.name,
-    icon: e.icon, color: e.color, budget: e.budget, order: e.order_num
-  }));
   
   const { data: memoData } = await supabaseClient
     .from('day_memos').select('*').eq('user_id', user.id);
@@ -5389,7 +5602,6 @@ autoFixed: t.auto_fixed || false, fxSourceId: t.fx_source_id || null, ftSourceId
     state.monthStartDay = settingsData.month_start_day ?? 1;
     state.hideIncome = settingsData.hide_income ?? true;
     state.defaultAllowance = settingsData.default_allowance ?? 500000;
-    state.defaultAllowanceOn = settingsData.default_allowance_on ?? true;
     state.monthlyBudgets = settingsData.monthly_budgets ?? {};
     if (settingsData.categories && settingsData.categories.length > 0) {
       CATEGORIES = settingsData.categories;
@@ -5453,216 +5665,6 @@ window.addEventListener('online', () => {
     }
   });
 });
-
-// ===== 봉투 관리 =====
-function openEnvelopeModal(accId, envId=null){
-  const env = envId ? ENVELOPES.find(e=>e.id===envId) : null;
-  const isEdit = !!env;
-  const ICONS = ['📩','🍚','🛍️','☕','🚌','💊','🎬','📚','💄','🏠','✈️','🎁','💰','🐾','⚡'];
-  const COLORS = ['#6366F1','#F59E0B','#10B981','#EF4444','#3B82F6','#8B5CF6','#EC4899','#14B8A6','#F97316','#84CC16'];
-
-  removeModal('envModal');
-  const html = `
-  <div id="envModal" class="overlay" style="z-index:130" onclick="if(event.target===this)removeModal('envModal')"></div>
-  <div id="envModalSheet" class="sheet" style="z-index:140;max-height:80vh">
-    <div class="sheet-handle"></div>
-    <div class="sheet-header">
-      <h2 class="sheet-title" style="font-size:var(--fs-h2)">${isEdit?'봉투 수정':'봉투 추가'}</h2>
-      <button class="btn-close" onclick="removeModal('envModal')">닫기</button>
-    </div>
-    <div style="display:flex;flex-direction:column;gap:20px">
-      <div class="form-group">
-        <label class="form-label">봉투 이름</label>
-        <input id="envName" type="text" class="form-input" placeholder="예: 식비" value="${env?.name||''}">
-      </div>
-      <div class="form-group">
-        <label class="form-label">아이콘</label>
-        <div id="envIconWrap" style="display:flex;flex-wrap:wrap;gap:8px">
-          ${ICONS.map(ic=>`<button onclick="selectEnvIcon('${ic}',this)" style="width:40px;height:40px;border-radius:12px;border:2px solid ${(env?.icon||'📩')===ic?'var(--indigo600)':'var(--gray200)'};background:${(env?.icon||'📩')===ic?'var(--indigo50)':'#fff'};font-size:18px;cursor:pointer" data-icon="${ic}">${ic}</button>`).join('')}
-        </div>
-      </div>
-      <div class="form-group">
-        <label class="form-label">색상</label>
-        <div id="envColorWrap" style="display:flex;flex-wrap:wrap;gap:10px">
-          ${COLORS.map(c=>`<div onclick="selectEnvColor('${c}',this)" style="width:32px;height:32px;border-radius:50%;background:${c};cursor:pointer;border:3px solid ${(env?.color||'#6366F1')===c?'var(--gray800)':'transparent'}" data-color="${c}"></div>`).join('')}
-        </div>
-      </div>
-      <div class="form-group">
-        <label class="form-label">월 예산 (선택)</label>
-        <div class="amount-wrap">
-          <input id="envBudget" type="text" inputmode="numeric" class="form-input amount" placeholder="0" value="${env?.budget?fmt(env.budget):''}">
-          <span class="amount-won">원</span>
-        </div>
-      </div>
-      <div class="btn-row" style="padding-top:4px">
-        ${isEdit?`<button style="flex:1;padding:16px;background:#FEF2F2;color:var(--red500);border:none;border-radius:16px;font-size:var(--fs-body);font-weight:var(--fw-h1);cursor:pointer;font-family:var(--font)" onclick="deleteEnvelope('${envId}')">삭제</button>`:''}
-        <button class="btn-primary" onclick="saveEnvelope('${accId}','${envId||''}')">
-          ${isEdit?'수정 완료':'추가하기'}
-        </button>
-      </div>
-    </div>
-  </div>`;
-  document.body.insertAdjacentHTML('beforeend', html);
-
-  window._envFormState = { icon: env?.icon||'📩', color: env?.color||'#6366F1' };
-
-  const budgetInput = document.getElementById('envBudget');
-  if(budgetInput){
-    budgetInput.addEventListener('input', function(){
-      const raw = this.value.replace(/,/g,'');
-      if(!isNaN(Number(raw))||raw==='') this.value = raw ? Number(raw).toLocaleString() : '';
-    });
-  }
-}
-
-window.selectEnvIcon = function(icon, el){
-  window._envFormState.icon = icon;
-  document.querySelectorAll('#envIconWrap button').forEach(b=>{
-    const active = b.dataset.icon === icon;
-    b.style.border = `2px solid ${active?'var(--indigo600)':'var(--gray200)'}`;
-    b.style.background = active ? 'var(--indigo50)' : '#fff';
-  });
-};
-
-window.selectEnvColor = function(color, el){
-  window._envFormState.color = color;
-  document.querySelectorAll('#envColorWrap div').forEach(d=>{
-    d.style.border = `3px solid ${d.dataset.color===color?'var(--gray800)':'transparent'}`;
-  });
-};
-
-async function saveEnvelope(accId, envId){
-  const name = (document.getElementById('envName')?.value||'').trim();
-  if(!name){ showToast('봉투 이름을 입력해주세요'); return; }
-  const icon = window._envFormState?.icon || '📩';
-  const color = window._envFormState?.color || '#6366F1';
-  const budget = parseInt((document.getElementById('envBudget')?.value||'0').replace(/,/g,''))||0;
-  const isEdit = envId !== '';
-
-  const { data: { user } } = await supabaseClient.auth.getUser();
-  if(!user) return;
-
-  if(isEdit){
-    const idx = ENVELOPES.findIndex(e=>e.id===envId);
-    if(idx===-1) return;
-    ENVELOPES[idx] = { ...ENVELOPES[idx], name, icon, color, budget };
-    await supabaseClient.from('envelopes').update({ name, icon, color, budget }).eq('id', envId);
-    showToast('봉투가 수정되었어요!');
-  } else {
-    const newEnv = { id: crypto.randomUUID(), accountId: accId, name, icon, color, budget, order: ENVELOPES.length };
-    ENVELOPES.push(newEnv);
-    await supabaseClient.from('envelopes').insert({
-      id: newEnv.id, user_id: user.id, account_id: accId,
-      name, icon, color, budget, order_num: newEnv.order
-    });
-    showToast('봉투가 추가되었어요!');
-  }
-  removeModal('envModal');
-  removeModal('accModal');
-  render();
-}
-
-async function deleteEnvelope(envId){
-  if(!confirm('봉투를 삭제할까요? 이 봉투에 배정된 거래는 미배정으로 변경돼요.')) return;
-  ENVELOPES = ENVELOPES.filter(e=>e.id!==envId);
-  TRANSACTIONS = TRANSACTIONS.map(t=> t.envelopeId===envId ? {...t, envelopeId: null} : t);
-  const { data: { user } } = await supabaseClient.auth.getUser();
-  if(user){
-    await supabaseClient.from('envelopes').delete().eq('id', envId);
-    await supabaseClient.from('transactions').update({ envelope_id: null }).eq('envelope_id', envId);
-  }
-  removeModal('envModal');
-  removeModal('accModal');
-  render();
-  showToast('봉투가 삭제되었어요');
-}
-
-// 봉투 간 이체
-function openEnvelopeTransferModal(accId){
-  const accEnvs = ENVELOPES.filter(e=>e.accountId===accId);
-  if(accEnvs.length < 2){ showToast('봉투가 2개 이상 필요해요'); return; }
-  removeModal('envTransferModal');
-  const html = `
-  <div id="envTransferModal" class="overlay" style="z-index:130" onclick="if(event.target===this)removeModal('envTransferModal')"></div>
-  <div id="envTransferSheet" class="sheet" style="z-index:140">
-    <div class="sheet-handle"></div>
-    <div class="sheet-header">
-      <h2 class="sheet-title" style="font-size:var(--fs-h2)">봉투 간 이동</h2>
-      <button class="btn-close" onclick="removeModal('envTransferModal')">닫기</button>
-    </div>
-    <div style="display:flex;flex-direction:column;gap:20px">
-      <div class="form-group">
-        <label class="form-label">금액</label>
-        <div class="amount-wrap">
-          <input id="envTrAmt" type="text" inputmode="numeric" class="form-input amount" placeholder="0">
-          <span class="amount-won">원</span>
-        </div>
-      </div>
-      <div class="form-group">
-        <label class="form-label">출발 봉투</label>
-        <select id="envTrFrom" class="form-select">
-          <option value="">선택</option>
-          ${accEnvs.map(e=>`<option value="${e.id}">${e.icon} ${e.name}</option>`).join('')}
-          <option value="__unassigned__">📭 미배정</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">도착 봉투</label>
-        <select id="envTrTo" class="form-select">
-          <option value="">선택</option>
-          ${accEnvs.map(e=>`<option value="${e.id}">${e.icon} ${e.name}</option>`).join('')}
-          <option value="__unassigned__">📭 미배정</option>
-        </select>
-      </div>
-      <button class="btn-primary" onclick="execEnvelopeTransfer('${accId}')">이동하기</button>
-    </div>
-  </div>`;
-  document.body.insertAdjacentHTML('beforeend', html);
-
-  document.getElementById('envTrAmt').addEventListener('input', function(){
-    const raw = this.value.replace(/,/g,'');
-    if(!isNaN(Number(raw))||raw==='') this.value = raw ? Number(raw).toLocaleString() : '';
-  });
-}
-
-async function execEnvelopeTransfer(accId){
-  const amt = parseInt((document.getElementById('envTrAmt')?.value||'0').replace(/,/g,''))||0;
-  const fromId = document.getElementById('envTrFrom')?.value;
-  const toId = document.getElementById('envTrTo')?.value;
-  if(!amt){ showToast('금액을 입력해주세요'); return; }
-  if(!fromId||!toId){ showToast('봉투를 선택해주세요'); return; }
-  if(fromId===toId){ showToast('같은 봉투예요'); return; }
-
-  // 봉투 이동은 두 개의 내부 거래로 기록 (출발: 지출처럼, 도착: 수입처럼)
-  const { data: { user } } = await supabaseClient.auth.getUser();
-  const today = new Date().toISOString().slice(0,10);
-  const fromEnv = ENVELOPES.find(e=>e.id===fromId);
-  const toEnv = ENVELOPES.find(e=>e.id===toId);
-  const fromName = fromId==='__unassigned__' ? '미배정' : (fromEnv?.icon+' '+fromEnv?.name);
-  const toName = toId==='__unassigned__' ? '미배정' : (toEnv?.icon+' '+toEnv?.name);
-
-  const outTx = { id: crypto.randomUUID(), date: today, time: '', desc: `봉투이동 → ${toName}`,
-    amount: -Math.abs(amt), category: 'envelope_transfer', accountId: accId,
-    envelopeId: fromId==='__unassigned__' ? null : fromId, isAllowance: false, memo: '', tags: [] };
-  const inTx = { id: crypto.randomUUID(), date: today, time: '', desc: `봉투이동 ← ${fromName}`,
-    amount: Math.abs(amt), category: 'envelope_transfer', accountId: accId,
-    envelopeId: toId==='__unassigned__' ? null : toId, isAllowance: false, memo: '', tags: [] };
-
-  TRANSACTIONS.unshift(inTx, outTx);
-  if(user){
-    await supabaseClient.from('transactions').insert([
-      { id: outTx.id, user_id: user.id, date: outTx.date, time: '00:00', description: outTx.desc,
-        amount: outTx.amount, category: outTx.category, account_id: accId,
-        envelope_id: outTx.envelopeId, is_allowance: false, memo: '', tags: [] },
-      { id: inTx.id, user_id: user.id, date: inTx.date, time: '00:00', description: inTx.desc,
-        amount: inTx.amount, category: inTx.category, account_id: accId,
-        envelope_id: inTx.envelopeId, is_allowance: false, memo: '', tags: [] }
-    ]);
-  }
-  removeModal('envTransferModal');
-  render();
-  showToast(`${fromName} → ${toName} 이동 완료!`);
-}
 
 // ===== 예·적금 만기 처리 =====
 function openSavingActionSheet(accId){
