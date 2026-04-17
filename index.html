@@ -3793,7 +3793,7 @@ function confirmDeleteFt(ftId) {
   if (!ft) return;
   const html = `
   <div id="ftDelModal" class="overlay" style="z-index:160" onclick="if(event.target===this)removeModal('ftDelModal')"></div>
-  <div id="ftDelSheet" class="sheet" style="z-index:170">
+  <div id="ftDelModalSheet" class="sheet" style="z-index:170">
     <div class="sheet-handle"></div>
     <div style="padding:0 20px 24px">
       <h2 style="font-size:var(--fs-h2);font-weight:var(--fw-h1);margin-bottom:6px">고정 이체 삭제</h2>
