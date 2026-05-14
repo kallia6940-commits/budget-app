@@ -3508,6 +3508,18 @@ function accDrop(e, targetId, targetType) {
   });
 
   refreshAccountSubview();
+  supabaseClient.auth.getUser().then(({data:{user}})=>{
+    if(!user) return;
+    ACCOUNTS.forEach(a => {
+      supabaseClient.from('accounts').upsert({
+        id: a.id, user_id: user.id, name: a.name, type: a.type,
+        saving_type: a.savingType || null, balance: a.balance,
+        color: a.color || null, rate: a.rate || null,
+        maturity: a.maturity || null, monthly: a.monthly || 0,
+        order: a.order
+      }, { onConflict: 'id' });
+    });
+  });
 }
 
 let _catDragId = null;
@@ -3618,7 +3630,19 @@ function cardDrop(e, targetId) {
   // order 필드 재계산
   CARDS.forEach((c, i) => { c.order = i; });
   refreshCardSubview();
-  saveSettings();
+  supabaseClient.auth.getUser().then(({data:{user}})=>{
+    if(!user) return;
+    CARDS.forEach(c => {
+      supabaseClient.from('cards').upsert({
+        id: c.id, user_id: user.id, name: c.name,
+        linked_account_id: c.linkedAccountId || null,
+        payment_day: c.paymentDay,
+        start_offset: c.startOffset,
+        end_offset: c.endOffset,
+        order: c.order
+      }, { onConflict: 'id' });
+    });
+  });
 }
 
 // ===== FIXED TRANSFER MANAGEMENT =====
@@ -4287,7 +4311,7 @@ function saveCard(cardId){
     CARDS[idx] = {...CARDS[idx], name, paymentDay, startOffset, endOffset, linkedAccountId};
     showToast('카드가 수정되었어요!');
   } else {
-    CARDS.push({ id: crypto.randomUUID(), name, paymentDay, startOffset, endOffset, linkedAccountId });
+    CARDS.push({ id: crypto.randomUUID(), name, paymentDay, startOffset, endOffset, linkedAccountId, order: CARDS.length });
     showToast('카드가 추가되었어요!');
   }
 
@@ -4300,7 +4324,8 @@ supabaseClient.auth.getUser().then(({ data: { user } }) => {
       linked_account_id: cardToSave.linkedAccountId || null,
       payment_day: cardToSave.paymentDay,
       start_offset: cardToSave.startOffset,
-      end_offset: cardToSave.endOffset
+      end_offset: cardToSave.endOffset,
+      order: cardToSave.order ?? 0
     }, { onConflict: 'id' });
   });
 
@@ -5557,10 +5582,11 @@ autoFixed: t.auto_fixed || false, fxSourceId: t.fx_source_id || null, ftSourceId
 
   // 카드
   const { data: cardData } = await supabaseClient
-    .from('cards').select('*').eq('user_id', user.id);
+    .from('cards').select('*').eq('user_id', user.id).order('order');
   if (cardData) CARDS = cardData.map(c => ({
     id: c.id, name: c.name, linkedAccountId: c.linked_account_id,
-    paymentDay: c.payment_day, startOffset: c.start_offset, endOffset: c.end_offset
+    paymentDay: c.payment_day, startOffset: c.start_offset, endOffset: c.end_offset,
+    order: c.order ?? 0
   }));
 
   // 할부
@@ -5609,6 +5635,7 @@ autoFixed: t.auto_fixed || false, fxSourceId: t.fx_source_id || null, ftSourceId
   }
 
   autoGenerateFixedExpenses();
+  autoGenerateFixedTransfers();
   render();
   showToast('데이터를 불러왔어요!');
 }
