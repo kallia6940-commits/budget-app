@@ -5221,7 +5221,10 @@ const newTx={
       to_account_id: newTx.toAccountId || null,
       is_card:       newTx.isCard || false,
       memo:          newTx.memo || '',
-      tags:          newTx.tags || []
+      tags:          newTx.tags || [],
+      auto_fixed:    newTx.autoFixed || false,
+      fx_source_id:  newTx.fxSourceId || null,
+      ft_source_id:  newTx.ftSourceId || null
     }, { onConflict: 'id' })
     .then(({ error }) => {
       if (error) showToast('⚠️ 저장 실패: ' + error.message);
@@ -5634,8 +5637,27 @@ autoFixed: t.auto_fixed || false, fxSourceId: t.fx_source_id || null, ftSourceId
     }
   }
 
+  const existingTxIds = new Set(TRANSACTIONS.map(t => t.id));
   autoGenerateFixedExpenses();
   autoGenerateFixedTransfers();
+  const newTxs = TRANSACTIONS.filter(t => !existingTxIds.has(t.id));
+  if (newTxs.length > 0) {
+    await supabaseClient.from('transactions').upsert(
+      newTxs.map(tx => ({
+        id: tx.id, user_id: user.id,
+        date: tx.date, time: tx.time || '00:00',
+        description: tx.desc, amount: tx.amount,
+        category: tx.category, account_id: tx.accountId,
+        to_account_id: tx.toAccountId || null,
+        is_card: tx.isCard || false,
+        memo: tx.memo || '', tags: tx.tags || [],
+        auto_fixed: tx.autoFixed || false,
+        fx_source_id: tx.fxSourceId || null,
+        ft_source_id: tx.ftSourceId || null
+      })),
+      { onConflict: 'id' }
+    );
+  }
   render();
   showToast('데이터를 불러왔어요!');
 }
