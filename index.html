@@ -3845,7 +3845,9 @@ function deleteFt(ftId) {
   showToast('삭제되었어요');
 supabaseClient.auth.getUser().then(({data:{user}})=>{
   if(!user) return;
-  supabaseClient.from('fixed_transfers').delete().eq('id',ftId);
+  supabaseClient.from('fixed_transfers').delete()
+    .eq('id', ftId).eq('user_id', user.id)
+    .then(({error}) => { if(error) showToast('⚠️ 고정이체 삭제 실패: ' + error.message); });
 });
 }
 
