@@ -874,6 +874,7 @@ let ENVELOPES = [];
 let TRANSACTIONS = [];
 
 let DAY_MEMOS = {};
+let AUTO_GEN_KEYS = { ft: [], fx: [] };
 
 const today = new Date();
 const todayStr = today.toISOString().split('T')[0];
@@ -1146,6 +1147,7 @@ async function saveSettings() {
     default_allowance: state.defaultAllowance,
     monthly_budgets: state.monthlyBudgets,
     categories: CATEGORIES,
+    auto_gen_keys: AUTO_GEN_KEYS,
   }, { onConflict: 'user_id' });
 }
 
@@ -3851,9 +3853,7 @@ function autoGenerateFixedTransfers() {
   const now = new Date(todayStr);
   const todayDay = now.getDate();
   const todayYM  = todayStr.slice(0, 7);
-  const existingKeys = new Set(
-    TRANSACTIONS.filter(t => t.ftSourceId).map(t => t.ftSourceId + '_' + t.date.slice(0, 7))
-  );
+  const genKeys = new Set(AUTO_GEN_KEYS.ft);
   let added = 0;
   FIXED_TRANSFERS.forEach(ft => {
     for (let offset = 5; offset >= 0; offset--) {
@@ -3863,7 +3863,7 @@ function autoGenerateFixedTransfers() {
       const ym   = `${yyyy}-${mm}`;
       if (ym === todayYM && ft.day > todayDay) continue;
       const key = ft.id + '_' + ym;
-      if (existingKeys.has(key)) continue;
+      if (genKeys.has(key)) continue; // 이미 생성됨 → 재생성 안 함
       const maxDay  = new Date(yyyy, d.getMonth() + 1, 0).getDate();
       const realDay = Math.min(ft.day, maxDay);
       const dateStr = `${ym}-${String(realDay).padStart(2, '0')}`;
@@ -3885,7 +3885,8 @@ function autoGenerateFixedTransfers() {
         isCard: false, memo: '', tags: ['#이체'],
         ftSourceId: ft.id, autoFixed: true,
       });
-      existingKeys.add(key);
+      genKeys.add(key);
+      AUTO_GEN_KEYS.ft.push(key);
       added++;
     }
   });
@@ -5320,15 +5321,9 @@ function editTx(id){
 }
 
 // 수동 삭제된 자동생성 고정비 거래 키 (재생성 방지)
-const deletedFxKeys = new Set(JSON.parse(localStorage.getItem('deletedFxKeys') || '[]'));
-
 function deleteTx(id){
   if(!confirm('정말 삭제할까요?')) return;
   const t = TRANSACTIONS.find(tx => tx.id === id);
-  if (t?.autoFixed && t.fxSourceId) {
-    deletedFxKeys.add(t.fxSourceId + '_' + t.date.slice(0, 7));
-    localStorage.setItem('deletedFxKeys', JSON.stringify([...deletedFxKeys]));
-  }
 TRANSACTIONS=TRANSACTIONS.filter(t=>t.id!==id);
   removeModal('detailModal');
   render();
@@ -5504,13 +5499,7 @@ function autoGenerateFixedExpenses() {
   const todayDay = now.getDate();   // 오늘이 몇 일인지
   const todayYM  = todayStr.slice(0, 7); // "YYYY-MM"
 
-  // 이미 자동생성된 거래를 (fxSourceId + "YYYY-MM") 키로 빠르게 조회
-  const existingKeys = new Set(
-    TRANSACTIONS
-      .filter(t => t.fxSourceId)
-      .map(t => t.fxSourceId + '_' + t.date.slice(0, 7))
-  );
-
+  const genKeysFx = new Set(AUTO_GEN_KEYS.fx);
   let added = 0;
 
   FIXED_EXPENSES.forEach(fx => {
@@ -5525,8 +5514,7 @@ function autoGenerateFixedExpenses() {
       if (ym === todayYM && fx.day > todayDay) continue;
 
       const key = fx.id + '_' + ym;
-      if (existingKeys.has(key)) continue; // 이미 있음
-      if (deletedFxKeys.has(key)) continue; // 수동 삭제됨 → 재생성 안 함
+      if (genKeysFx.has(key)) continue; // 이미 생성됨 → 재생성 안 함
 
       // 결제일 날짜 (월말 초과 방지: 2월 31일 → 2월 28일)
       const maxDay  = new Date(yyyy, d.getMonth() + 1, 0).getDate();
@@ -5547,7 +5535,8 @@ function autoGenerateFixedExpenses() {
         autoFixed:  true,                       // ← 자동생성 표시
       });
 
-      existingKeys.add(key); // 이번 루프에서 중복 방지
+      genKeysFx.add(key);
+      AUTO_GEN_KEYS.fx.push(key);
       added++;
     }
   });
@@ -5635,6 +5624,11 @@ autoFixed: t.auto_fixed || false, fxSourceId: t.fx_source_id || null, ftSourceId
     if (settingsData.categories && settingsData.categories.length > 0) {
       CATEGORIES = settingsData.categories;
     }
+    if (settingsData.auto_gen_keys) {
+      AUTO_GEN_KEYS = settingsData.auto_gen_keys;
+      if (!AUTO_GEN_KEYS.ft) AUTO_GEN_KEYS.ft = [];
+      if (!AUTO_GEN_KEYS.fx) AUTO_GEN_KEYS.fx = [];
+    }
   }
 
   const existingTxIds = new Set(TRANSACTIONS.map(t => t.id));
@@ -5657,6 +5651,7 @@ autoFixed: t.auto_fixed || false, fxSourceId: t.fx_source_id || null, ftSourceId
       })),
       { onConflict: 'id' }
     );
+    await saveSettings();
   }
   render();
   showToast('데이터를 불러왔어요!');
